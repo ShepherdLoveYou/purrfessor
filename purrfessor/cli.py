@@ -122,12 +122,13 @@ def init() -> None:
               "    请手动开启：Settings → Pages → Source 选 GitHub Actions")
 
     gh("workflow", "run", "deploy.yml", "-R", repo, check=False)
-    print("  ✓ first deploy started (takes ~3 min) / 已触发第一次部署（约 3 分钟）")
-    if preset == "generic":
+    print("  ✓ deploy started (takes ~3 min) / 已触发部署（约 3 分钟）")
+    S = load(CONFIG)
+    if preset == "generic" and not (S.term.get("week1_monday") and S.classes):
         print("\n  ! Set [term] week1_monday / last_class_day and your [[classes]] in purrfessor.toml,\n"
               "    then run `purrfessor config-upload`. / 请在 purrfessor.toml 里填写学期日期和课表，再运行 config-upload。")
     owner, _, rest = repo.partition("/")
-    print(f"\nYour page / 你的页面: https://{owner.lower()}.github.io/{rest}/{load(CONFIG).page_path}  🎉")
+    print(f"\nYour page / 你的页面: https://{owner.lower()}.github.io/{rest}/{S.page_path}  🎉")
 
 
 def write_config() -> tuple[str, str]:

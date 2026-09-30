@@ -77,7 +77,7 @@ jobs:
         env:
           BASE_URL: ${{ steps.pages.outputs.base_url }}
           REPO_ID: ${{ github.repository_id }}
-        run: purrfessor ci-env --config purrfessor.toml --base-url "$BASE_URL" --repo-id "$REPO_ID" | tee -a "$GITHUB_ENV" | grep -v '^SALT='
+        run: purrfessor ci-env --config purrfessor.toml --base-url "$BASE_URL" --repo-id "$REPO_ID" | tee -a "$GITHUB_ENV"
 
       # Snapshots live on the site itself: fetch the previous (encrypted) page and the archive, decrypt it here,
       # only to compute "since last update" and carry the agent's memory.

@@ -45,7 +45,7 @@ announcement summaries) with Gemini. The English UI has nothing to translate. Th
 
 ### Quick start (about 10 minutes)
 
-You need a GitHub account and the [GitHub CLI](https://cli.github.com) (`gh auth login`).
+You need a GitHub account, Python 3.11 or newer, and the [GitHub CLI](https://cli.github.com) (`gh auth login`).
 
 1. Click **Use this template → Create a new repository**. Make it **public**, because GitHub Pages is free only for
    public repositories. Your page is still encrypted.
@@ -213,7 +213,7 @@ and isn't covered by the MIT license. Replace it or turn it off with `meme = fal
 
 ### 快速开始（约 10 分钟）
 
-需要一个 GitHub 账号，并安装 [GitHub CLI](https://cli.github.com)，然后运行 `gh auth login` 登录。
+需要一个 GitHub 账号、Python 3.11 或更新版本，并安装 [GitHub CLI](https://cli.github.com)，然后运行 `gh auth login` 登录。
 
 1. 点击 **Use this template → Create a new repository**，选 **Public**（免费账号只有公开仓库能用 GitHub Pages；
    页面本身是加密的）。
