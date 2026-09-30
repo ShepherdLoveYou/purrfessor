@@ -5,6 +5,7 @@ purrfessor.toml
 _build/
 _site/
 _prev/
+_check/
 # Python
 __pycache__/
 *.egg-info/

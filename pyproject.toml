@@ -1,6 +1,6 @@
 [project]
 name = "purrfessor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Purrfessor · 喵教授 — an encrypted, self-updating daily dashboard for Canvas students, with a self-improving AI agent. Runs free on GitHub Actions + Pages."
 readme = "README.md"
 license = "MIT"

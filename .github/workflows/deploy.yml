@@ -65,16 +65,19 @@ jobs:
           test -n "$PURRFESSOR_CONFIG" || { echo "::error::PURRFESSOR_CONFIG secret is missing — run 'purrfessor init'"; exit 1; }
           printf '%s\n' "$PURRFESSOR_CONFIG" > purrfessor.toml
 
-      # Salt = hash of this repo's id: stable (so "remember me" survives updates) and different for every copy.
-      # 盐 = 本仓库 id 的哈希：固定不变（"记住我"在更新后仍然有效），每个人的仓库都不同。
-      - name: Site salt
-        env:
-          REPO_ID: ${{ github.repository_id }}
-        run: echo "SALT=$(printf 'purrfessor-%s' "$REPO_ID" | sha256sum | cut -c1-32)" >> "$GITHUB_ENV"
-
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v6
+
+      # Where the page goes ([site] path in the config) and the Staticrypt salt: a hash of this repo's id, stable
+      # (so "remember me" survives updates) and different for every copy — or the salt in .staticrypt.json, if any.
+      # 页面放在哪里（配置里的 [site] path），以及加密用的盐：本仓库 id 的哈希，固定不变、每个仓库都不同；
+      # 仓库里有 .staticrypt.json 时沿用它的盐。
+      - name: Site layout and salt
+        env:
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+          REPO_ID: ${{ github.repository_id }}
+        run: purrfessor ci-env --config purrfessor.toml --base-url "$BASE_URL" --repo-id "$REPO_ID" | tee -a "$GITHUB_ENV" | grep -v '^SALT='
 
       # Snapshots live on the site itself: fetch the previous (encrypted) page and the archive, decrypt it here,
       # only to compute "since last update" and carry the agent's memory.
@@ -82,35 +85,47 @@ jobs:
       - name: Restore last snapshot
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
-          BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
-          purrfessor snapshot fetch --base "$BASE_URL" --prev-dir _prev --archive-dir _site/archive
+          purrfessor snapshot fetch --base "$PAGE_URL" --prev-dir _prev --archive-dir "_site/${PAGE}archive"
           if [ -f _prev/index.html ]; then
-            npx --yes staticrypt@3 _prev/index.html --decrypt -c false --salt "$SALT" -p "$SITE_PASSWORD" -d _prev/plain >/dev/null 2>&1 \
-              || echo "Could not decrypt the previous snapshot (password changed?) — skipping the comparison"
+            if npx --yes staticrypt@3 _prev/index.html --decrypt -c false --salt "$SALT" -p "$SITE_PASSWORD" -d _prev/plain >/dev/null 2>&1; then
+              echo "previous snapshot decrypted"
+            else
+              echo "Could not decrypt the previous snapshot (password changed?) — skipping the comparison"
+            fi
           fi
 
       - name: Build
         env:
           CANVAS_TOKEN: ${{ secrets.CANVAS_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # optional / 可选
-          BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
-          BASE_PATH=$(python -c "import os,urllib.parse;print(urllib.parse.urlparse(os.environ['BASE_URL']).path.rstrip('/'))")
-          purrfessor build --config purrfessor.toml --out _build/index.html \
-            --prev _prev/plain/index.html --archive-dates _prev/archive.json --archive-base "$BASE_PATH/archive/"
+          purrfessor build --config purrfessor.toml --out _build/index.html --prev _prev/plain/index.html \
+            --archive-dates _prev/archive.json --archive-base "$ARCHIVE_BASE" --home-url "$HOME_URL"
 
+      # Files in site/ (a home page, other pages…) are published as they are, next to the dashboard.
+      # site/ 目录里的文件（主页、其他页面……）原样发布，和今日页面放在一起。
       - name: Encrypt and assemble site
         env:
           SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
         run: |
           test -n "$SITE_PASSWORD" || { echo "::error::SITE_PASSWORD secret is missing — run 'purrfessor init'"; exit 1; }
+          if [ -d site ]; then cp -R site/. _site/; fi
           mapfile -t LOCK < <(purrfessor lock-args --config purrfessor.toml)
-          npx --yes staticrypt@3 _build/index.html -d _site -c false --salt "$SALT" \
+          npx --yes staticrypt@3 _build/index.html -d "_site/$PAGE" -c false --salt "$SALT" \
             -p "$SITE_PASSWORD" --short --remember 30 "${LOCK[@]}"
-          test -s _site/index.html
           touch _site/.nojekyll
-          purrfessor snapshot add --site-dir _site --config purrfessor.toml --keep 30
+          purrfessor snapshot add --site-dir "_site/$PAGE" --config purrfessor.toml --keep 30
+
+      # The published page must open with the site password and give back exactly the page just built.
+      # 发布前自检：用网站口令解密刚加密的页面，必须和生成的页面一模一样。
+      - name: Check the page opens with the password
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: |
+          npx --yes staticrypt@3 "_site/${PAGE}index.html" --decrypt -c false --salt "$SALT" -p "$SITE_PASSWORD" -d _check >/dev/null
+          cmp -s _check/index.html _build/index.html || { echo "::error::the encrypted page does not decrypt back to the built page"; exit 1; }
+          echo "page decrypts with the site password"
 
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -79,6 +79,19 @@ To change something later (course names, extra classes, weekly tasks), edit `pur
 | `GEMINI_API_KEY` | optional | Translation, announcement reading, today's brief |
 | `PURRFESSOR_ENABLED` (variable) | required | `true` turns on the deploy workflow |
 
+### Your own pages, and moving an existing site over
+
+- **Other pages.** Files in a `site/` folder in your repo are published as they are, next to the dashboard.
+  To keep your own home page at the site root, move the dashboard into a subfolder in `purrfessor.toml`:
+  ```toml
+  [site]
+  path = "today"   # the dashboard is at https://<you>.github.io/<repo>/today/
+  home = true      # adds a "Home" link back to the site root
+  ```
+- **Already have a Staticrypt site?** Commit its `.staticrypt.json`. Its salt is then used instead of the per-repo
+  one, so "remember me" keeps working, and the first run can still decrypt your last page and carry on from it.
+- **Running `purrfessor init` again** keeps the secrets you already set: press Enter at each one.
+
 ### Privacy and cost
 
 - **Free.** Public repositories get unlimited GitHub Actions minutes. Four runs a day take about 3 minutes each.
@@ -232,6 +245,19 @@ and isn't covered by the MIT license. Replace it or turn it off with `meme = fal
 | `PURRFESSOR_CONFIG` | 必需 | 你的 `purrfessor.toml`（不进仓库） |
 | `GEMINI_API_KEY` | 可选 | 翻译、理解公告、今日简报 |
 | `PURRFESSOR_ENABLED`（变量） | 必需 | 设为 `true` 才会部署 |
+
+### 自己的页面，以及迁移已有网站
+
+- **其他页面。** 仓库里 `site/` 目录下的文件会原样发布，和今日页面放在一起。想在网站根目录保留自己的主页，
+  就在 `purrfessor.toml` 里把今日页面放进子目录：
+  ```toml
+  [site]
+  path = "today"   # 今日页面在 https://<你>.github.io/<仓库>/today/
+  home = true      # 顶部加一个回到网站首页的链接
+  ```
+- **已经有用 Staticrypt 加密的网站？** 把它的 `.staticrypt.json` 提交到仓库，就会沿用里面的盐：
+  "记住我"继续有效，第一次运行也能解密上一份页面，接着往下比较和记忆。
+- **再次运行 `purrfessor init`** 时，已经设置过的 secret 直接回车就会保留。
 
 ### 隐私与费用
 

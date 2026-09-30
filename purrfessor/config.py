@@ -6,6 +6,7 @@ The personal config is kept out of the (public) repo and passed to CI as the PUR
 """
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,6 +24,7 @@ class Settings:
     tz: ZoneInfo
     language: str = "en"
     name: str = "Me"
+    preset: str = "generic"
     banner: dict = field(default_factory=dict)
     term: dict = field(default_factory=dict)
     courses: dict = field(default_factory=dict)       # Canvas course id → display name
@@ -30,6 +32,7 @@ class Settings:
     classes: list = field(default_factory=list)
     recurring: list = field(default_factory=list)
     features: dict = field(default_factory=dict)
+    site: dict = field(default_factory=dict)           # [site] path / home: where the page is published
     warnings: list = field(default_factory=list)       # i18n keys
 
     @property
@@ -40,6 +43,14 @@ class Settings:
 
     def on(self, feature: str) -> bool:
         return bool(self.features.get(feature, True))
+
+    @property
+    def page_path(self) -> str:
+        """[site] path = "today" → "today/": the page is published at <site>/today/. "" = the site root."""
+        p = str(self.site.get("path", "")).strip("/")
+        if p and (not re.fullmatch(r"[A-Za-z0-9._/-]+", p) or any(x in ("", ".", "..") for x in p.split("/"))):
+            raise ValueError(f"[site] path = {p!r}: use letters, digits, '-', '_' and '/' only")
+        return f"{p}/" if p else ""
 
 
 def merge(base: dict, over: dict) -> dict:
@@ -79,6 +90,7 @@ def load(path: str | Path | None) -> Settings:
         tz=ZoneInfo(school.get("timezone", "America/New_York")),
         language=language if language in LANGUAGES else "en",
         name=cfg.get("name", "Me"),
+        preset=preset_name,
         banner=cfg.get("banner", {}),
         term=cfg.get("term", {}),
         courses={int(k): v for k, v in cfg.get("courses", {}).items()},
@@ -86,5 +98,6 @@ def load(path: str | Path | None) -> Settings:
         classes=cfg.get("classes", []),
         recurring=cfg.get("recurring", []),
         features={"agent": True, "meme": True, "grades": True, "translate": True, **cfg.get("features", {})},
+        site=cfg.get("site", {}),
         warnings=warnings,
     )

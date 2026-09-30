@@ -74,6 +74,13 @@ name = "Alex"
 # url = "https://…"
 
 # ---------------------------------------------------------------------------------------------------------------
+# Where the page is published. Files in the repo's site/ folder are published as they are (e.g. your own home page).
+# 页面发布在哪里。仓库里 site/ 目录下的文件会原样发布（比如你自己的主页）。
+# [site]
+# path = "today"      # → https://<you>.github.io/<repo>/today/ (default: the site root / 默认是网站根目录)
+# home = true         # a "Home" link back to the site root / 顶部加一个回到网站首页的链接
+
+# ---------------------------------------------------------------------------------------------------------------
 # Everything is on by default. 默认全部开启。
 [features]
 agent = true        # today's brief by the self-improving AI agent (needs GEMINI_API_KEY) / 今日简报（需要 Gemini key）
