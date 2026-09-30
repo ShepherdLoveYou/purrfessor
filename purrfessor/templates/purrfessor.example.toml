@@ -1,0 +1,82 @@
+# Purrfessor · 喵教授 — personal config / 个人配置
+#
+# This file is PRIVATE: it is git-ignored and uploaded to GitHub as the PURRFESSOR_CONFIG secret
+# (`purrfessor init` does it the first time, `purrfessor config-upload` after each edit).
+# 这个文件是私密的：不进仓库，作为 GitHub Secret PURRFESSOR_CONFIG 上传
+#（第一次由 `purrfessor init` 完成，之后每次修改运行 `purrfessor config-upload`）。
+
+# School preset (purrfessor/presets/*.toml): "ucr", or "generic" for any other Canvas school.
+# 学校预设：ucr，或者其他 Canvas 学校用 generic。
+preset = "ucr"
+
+# Page language: "zh" = 中文 (English Canvas content is translated by Gemini), "en" = English (nothing to translate).
+# 页面语言：zh = 中文（Canvas 上的英文内容由 Gemini 翻译），en = 英文（不翻译）。表情包配文也跟着变。
+language = "zh"
+
+# Shown as "<name>'s Today". 页面标题里的名字。
+name = "Alex"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Only needed with preset = "generic" (or to override the preset). 只有 generic 预设才需要（或用来覆盖预设）。
+# [school]
+# name = "My School"
+# canvas_url = "https://canvas.myschool.edu"
+# timezone = "America/Chicago"
+
+# Term dates. With a Banner preset (ucr) they come from the class schedule automatically; otherwise set them.
+# 学期日期。UCR 等有 Banner 的预设会自动读取；其他学校请手动填写。
+# [term]
+# name = "Fall 2026"
+# week1_monday = "2026-09-28"
+# last_class_day = "2026-12-04"
+# holidays = ["2026-11-26", "2026-11-27"]
+
+# ---------------------------------------------------------------------------------------------------------------
+# Canvas course id → short name on the page (the id is in the course URL: /courses/<id>).
+# Leave it out and names come from the Canvas course code.
+# Canvas 课程 id → 页面上显示的简称（id 在课程网址 /courses/<id> 里）。不填就用 Canvas 的课号。
+[courses]
+# "123456" = "CS 005"
+# "123457" = "MATH 006A"
+
+# Adjust a class read from the schedule: add a note or a Zoom link, or change from / until / where.
+# kind = lecture | discussion | lab | workshop | seminar | studio | … (or the label shown on the page)
+# 调整从课表读到的某节课：加备注、Zoom 链接，或改开始 / 结束日期、地点。
+# [[notes]]
+# course = "CS 005"
+# kind = "discussion"
+# from = "2026-10-01"          # e.g. discussions start in week 1 / 比如讨论课第一周才开始
+# note = "Bring your laptop"
+# link = "https://zoom.us/j/…"
+
+# Classes you add by hand (schools without a public Banner search, or anything extra).
+# 手动添加的课（没有公开 Banner 查询的学校，或者其他额外安排）。
+# [[classes]]
+# course = "BIO 101"
+# kind = "Lecture"
+# days = ["Mon", "Wed", "Fri"]
+# start = "10:00"
+# end = "10:50"
+# where = "Science Hall 120"
+# from = "2026-09-28"
+# until = "2026-12-04"
+
+# Weekly work outside Canvas (Top Hat, a homework website…): one task per week, ticked off on the page.
+# Canvas 之外每周固定的作业（Top Hat、网上作业系统……）：每周生成一项，做完在页面上打勾。
+# [[recurring]]
+# course = "MATH 006A"
+# title = "Weekly online homework"
+# platform = "iMath"
+# weekday = "Fri"
+# due = "23:59"
+# from = "2026-10-02"
+# until = "2026-12-04"
+# url = "https://…"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Everything is on by default. 默认全部开启。
+[features]
+agent = true        # today's brief by the self-improving AI agent (needs GEMINI_API_KEY) / 今日简报（需要 Gemini key）
+meme = true         # the wizard-cat year counter / 巫师猫表情包
+grades = true       # grades & missing work card / 成绩与缺交
+translate = true    # Chinese UI only: translate assignment titles / 仅中文界面：翻译作业标题

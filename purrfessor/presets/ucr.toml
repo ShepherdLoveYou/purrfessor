@@ -1,0 +1,25 @@
+# UC Riverside — the first Purrfessor school preset.
+# UC Riverside（加州大学河滨分校）——喵教授的第一个学校预设。
+#
+# Everything here is public information. Personal settings go in purrfessor.toml.
+# 这里都是公开信息；个人设置写在 purrfessor.toml。
+
+[school]
+name = "UC Riverside"
+canvas_url = "https://elearn.ucr.edu"
+timezone = "America/Los_Angeles"
+
+# Class times, rooms and instructors come from UCR's public Banner class search.
+# 上课时间、教室、老师都从 UCR 的公开选课查询（Banner）自动读取。
+[banner]
+url = "https://registrationssb.ucr.edu/StudentRegistrationSsb/ssb"
+# Canvas course codes look like CS_005_002_26F → subject CS, number 005, section 002, term 2026 Fall
+# Canvas 课号形如 CS_005_002_26F → 科目 CS、课号 005、班号 002、2026 秋季
+section_pattern = '^([A-Z]+)_(\w+?)_(\d{3})_(\d{2})([WSUF])'
+term_suffix = { W = "10", S = "20", U = "30", F = "40" }   # 26F → Banner term 202640
+term_names = { "10" = "Winter", "20" = "Spring", "30" = "Summer", "40" = "Fall" }
+
+[term]
+# Campus holidays: no classes shown (deadlines still are). Update each year.
+# 校历假期：这些天不显示上课（作业照常显示）。每年更新一次。
+holidays = ["2026-11-11", "2026-11-26", "2026-11-27"]

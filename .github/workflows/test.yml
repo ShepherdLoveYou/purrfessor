@@ -1,0 +1,29 @@
+# Tests on every pull request (Dependabot upgrades included) and on pushes to the template itself.
+# No secrets, no deploy. 每个 PR（包括 Dependabot 的升级）都先跑测试；不接触任何 Secret，也不部署。
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # a deployed copy already tests before every deploy / 已部署的仓库在部署前会测试，push 时不重复跑
+    if: github.event_name != 'push' || vars.PURRFESSOR_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install ".[test]"
+      - run: pytest

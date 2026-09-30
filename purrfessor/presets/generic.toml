@@ -1,0 +1,13 @@
+# Any school that uses Canvas. Set your own [school] in purrfessor.toml.
+# 任何使用 Canvas 的学校都可以用。在 purrfessor.toml 里写上自己学校的 [school]。
+#
+# Without a public Banner class search, list your classes under [[classes]] in purrfessor.toml.
+# 学校没有公开的 Banner 选课查询时，在 purrfessor.toml 的 [[classes]] 里手动填课表。
+
+[school]
+name = "My School"
+canvas_url = "https://canvas.instructure.com"
+timezone = "America/New_York"
+
+[term]
+holidays = []

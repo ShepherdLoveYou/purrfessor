@@ -1,0 +1,131 @@
+# Build → encrypt → publish your page to GitHub Pages, 4× a day.
+# 生成 → 加密 → 发布到 GitHub Pages，每天 4 次。
+#
+# Runs only after `purrfessor init` has set the repo variable PURRFESSOR_ENABLED=true,
+# so the template itself (and fresh copies) stay green.
+# 只有运行过 `purrfessor init`（它会设置仓库变量 PURRFESSOR_ENABLED=true）才会部署，模板本身不会报错。
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+  schedule:
+    # UTC. These are 00:05 / 06:00 / 12:00 / 18:00 in US Pacific (daylight time); shift them for your time zone.
+    # UTC 时间，对应美西夏令时 00:05 / 06:00 / 12:00 / 18:00；别的时区可以自己调整。
+    - cron: "5 7 * * *"
+    - cron: "0 13 * * *"
+    - cron: "0 19 * * *"
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.PURRFESSOR_ENABLED == 'true'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    env:
+      PYDANTIC_AI_NO_BANNER: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: pip install ".[test]"
+
+      # The whole state machine is tested with fake data first. Failing tests → no deploy; the live page stays as is.
+      # 先用假数据把状态机全测一遍；测试不过就不部署，线上保留上一个好的版本。
+      - name: Test
+        run: pytest
+
+      # The personal config only ever exists on this throw-away runner. 个人配置只存在于这台临时机器上。
+      - name: Write personal config
+        env:
+          PURRFESSOR_CONFIG: ${{ secrets.PURRFESSOR_CONFIG }}
+        run: |
+          test -n "$PURRFESSOR_CONFIG" || { echo "::error::PURRFESSOR_CONFIG secret is missing — run 'purrfessor init'"; exit 1; }
+          printf '%s\n' "$PURRFESSOR_CONFIG" > purrfessor.toml
+
+      # Salt = hash of this repo's id: stable (so "remember me" survives updates) and different for every copy.
+      # 盐 = 本仓库 id 的哈希：固定不变（"记住我"在更新后仍然有效），每个人的仓库都不同。
+      - name: Site salt
+        env:
+          REPO_ID: ${{ github.repository_id }}
+        run: echo "SALT=$(printf 'purrfessor-%s' "$REPO_ID" | sha256sum | cut -c1-32)" >> "$GITHUB_ENV"
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      # Snapshots live on the site itself: fetch the previous (encrypted) page and the archive, decrypt it here,
+      # only to compute "since last update" and carry the agent's memory.
+      # 快照就存在网站上：取回上一份（加密的）页面和历史归档，在这里解密，只用来算变化、传递智能体的记忆。
+      - name: Restore last snapshot
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          purrfessor snapshot fetch --base "$BASE_URL" --prev-dir _prev --archive-dir _site/archive
+          if [ -f _prev/index.html ]; then
+            npx --yes staticrypt@3 _prev/index.html --decrypt -c false --salt "$SALT" -p "$SITE_PASSWORD" -d _prev/plain >/dev/null 2>&1 \
+              || echo "Could not decrypt the previous snapshot (password changed?) — skipping the comparison"
+          fi
+
+      - name: Build
+        env:
+          CANVAS_TOKEN: ${{ secrets.CANVAS_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}   # optional / 可选
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          BASE_PATH=$(python -c "import os,urllib.parse;print(urllib.parse.urlparse(os.environ['BASE_URL']).path.rstrip('/'))")
+          purrfessor build --config purrfessor.toml --out _build/index.html \
+            --prev _prev/plain/index.html --archive-dates _prev/archive.json --archive-base "$BASE_PATH/archive/"
+
+      - name: Encrypt and assemble site
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
+        run: |
+          test -n "$SITE_PASSWORD" || { echo "::error::SITE_PASSWORD secret is missing — run 'purrfessor init'"; exit 1; }
+          mapfile -t LOCK < <(purrfessor lock-args --config purrfessor.toml)
+          npx --yes staticrypt@3 _build/index.html -d _site -c false --salt "$SALT" \
+            -p "$SITE_PASSWORD" --short --remember 30 "${LOCK[@]}"
+          test -s _site/index.html
+          touch _site/.nojekyll
+          purrfessor snapshot add --site-dir _site --config purrfessor.toml --keep 30
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  # GitHub pauses scheduled workflows after 60 days without commits; this renews them through the API (no commits).
+  # 仓库 60 天没有提交，GitHub 会停用定时任务；这里通过 API 提前续期，不产生提交。
+  keepalive:
+    if: github.event_name == 'schedule' && vars.PURRFESSOR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@v1

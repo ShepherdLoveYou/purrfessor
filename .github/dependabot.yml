@@ -1,0 +1,21 @@
+# Weekly upgrades of GitHub Actions and Python dependencies, grouped into one PR each; tests run on the PR.
+# 每周检查 GitHub Actions 和 Python 依赖的新版本，各合成一个 PR；PR 会先跑测试，通过后合并即可。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: saturday
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: saturday
+    groups:
+      python:
+        patterns: ["*"]

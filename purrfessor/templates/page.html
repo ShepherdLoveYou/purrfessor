@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,{{FAVICON}}">
+<script>
+  // Follow the system's dark mode: Tabler reads data-bs-theme, FullCalendar reads data-color-scheme
+  (function () {
+    var dark = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
+    document.documentElement.setAttribute("data-color-scheme", dark ? "dark" : "light");
+  })();
+</script>
+<!-- Open-source kits: Tabler (MIT), Tabler Icons (MIT), FullCalendar (MIT) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.6.1/dist/css/tabler.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.48.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.1.0/skeleton.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.1.0/themes/forma/theme.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.1.0/themes/forma/palettes/blue.css">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.1.0/all/global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.1.0/themes/forma/global.js"></script>
+{{FC_LOCALE_SCRIPT}}
+<style>
+  /* Only what Tabler doesn't cover */
+  .min-w-0 { min-width: 0; }
+  .time-col { min-width: 3.5rem; }
+  .nav-sticky { position: sticky; top: 0; z-index: 1020; margin: 1rem -.75rem 0; padding: .5rem .75rem;
+    background: color-mix(in srgb, var(--tblr-body-bg) 85%, transparent);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); overflow-x: auto; }
+  .nav-sticky .nav { flex-wrap: nowrap; }
+  .nav-sticky .nav-link { white-space: nowrap; }
+  section[id] { scroll-margin-top: 4.5rem; }
+  .next .card-status-start { background: var(--c, var(--tblr-border-color)); }
+  .next .next-big { color: var(--c, inherit); font-variant-numeric: tabular-nums; }
+  .cd { font-variant-numeric: tabular-nums; min-width: 5.5rem; }
+  .task.done .title, .task.checked .title { text-decoration: line-through; opacity: .5; }
+  .task.checked .cd { opacity: .35; }
+  .cls.past { opacity: .45; }
+  .preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    cursor: pointer; white-space: pre-line; }
+  .preview.open { display: block; }
+  #calendar .deadline { font-weight: 600; }
+  .term-progress { width: 9rem; }
+  .brand-logo { display: block; }
+  /* Today's brief */
+  .brief-headline { margin: 0; padding-left: .875rem; border-left: 3px solid var(--tblr-primary);
+    font-size: 1.0625rem; font-weight: 600; line-height: 1.7; }
+  .brief-num { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%;
+    font-size: .8125rem; font-weight: 700; background: var(--tblr-primary-lt); color: var(--tblr-primary); }
+  .brief-step { display: flex; gap: .5rem; align-items: baseline; line-height: 1.6; }
+  .brief-step .ti { color: var(--tblr-primary); flex: none; }
+  #brief .list-group-item { padding-top: 1rem; padding-bottom: 1rem; }
+  .brief-section { display: flex; align-items: center; gap: .5rem; padding: 1.25rem 1.25rem .5rem;
+    font-weight: 600; color: var(--tblr-body-color); border-top: 1px solid var(--tblr-border-color); }
+  .brief-section .ti { color: var(--tblr-primary); font-size: 1.125rem; }
+  /* The wizard-cat meme: caption sits in the blank lower-right area of the image */
+  .meme { position: relative; max-width: 560px; aspect-ratio: 1170 / 792; container-type: inline-size;
+    background: #fff var(--cat) center / 100% 100% no-repeat; border: 1px solid var(--tblr-border-color);
+    border-radius: 12px; overflow: hidden; }
+  .meme-cap { position: absolute; left: 38.4%; top: 69.4%; width: 57.5%; height: 20%; display: grid;
+    align-content: center; justify-items: center; color: #111; font-weight: 500; font-size: 4.7cqw; line-height: 1.28;
+    white-space: nowrap; font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+  .meme-num { font-variant-numeric: tabular-nums; }
+  .meme-en .meme-cap { font-size: 4.1cqw; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .meme-foot { max-width: 560px; }
+  @media (max-width: 575.98px) { .cd { min-width: 4.5rem; } .page-title { font-size: 1.5rem; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-wrapper">
+    <div class="page-body mt-3">
+      <div class="container-xl">
+<div class="alert alert-info mb-3" id="snapshot-note" hidden><i class="ti ti-history"></i>
+  <span id="snapshot-text"></span> <a href="../">{{SNAP_LATEST}}</a></div>
+{{BODY}}
+      </div>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="data">{{DATA}}</script>
+<script>
+(function () {
+  var D = { classes: [], tasks: [], calendar: { events: [] }, i18n: {} };
+  try { D = JSON.parse(document.getElementById("data").textContent); } catch (e) {}
+  var L = D.i18n || {}, TZ = D.tz || undefined;
+  var BADGES = ["bg-red-lt", "bg-orange-lt", "bg-blue-lt", "bg-secondary-lt", "bg-green-lt"];
+  var ls = null; try { ls = window.localStorage; } catch (e) {}
+  function get(k) { try { return ls && ls.getItem(k); } catch (e) { return null; } }
+  function put(k, v) { try { v ? ls.setItem(k, "1") : ls.removeItem(k); } catch (e) {} }
+  function fill(s, o) { return String(s || "").replace(/\{(\w+)\}/g, function (_, k) { return o[k] != null ? o[k] : ""; }); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  // Every clock time is shown in the school's time zone, wherever the page is opened.
+  var HM = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
+  var YMD = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
+  var WDAY = new Intl.DateTimeFormat(D.lang === "zh" ? "zh-CN" : "en-US", { timeZone: TZ, weekday: "short" });
+  function hhmm(t) { return HM.format(new Date(t)); }
+  function fmt(ms) {
+    var s = Math.floor(Math.abs(ms) / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600),
+        m = Math.floor(s % 3600 / 60), x = s % 60;
+    var out = d ? d + L.d + h + L.h : h ? h + L.h + m + L.m : m + L.m + pad(x) + L.s;
+    return out.trim();
+  }
+  function relDay(t) {
+    var n = Math.round((Date.parse(YMD.format(new Date(t))) - Date.parse(YMD.format(new Date()))) / 864e5);
+    return (L.rel && n >= 0 && n < L.rel.length) ? L.rel[n] : WDAY.format(new Date(t));
+  }
+  function badgeFor(ms) { return ms < 864e5 ? "bg-red-lt" : ms < 2592e5 ? "bg-orange-lt" : ms < 6048e5 ? "bg-blue-lt" : "bg-secondary-lt"; }
+  function setBadge(el, cls) { BADGES.forEach(function (b) { el.classList.remove(b); }); el.classList.add(cls); }
+
+  var snap = location.pathname.match(/\/archive\/(\d{4})-(\d{2})-(\d{2})\.html$/);
+  if (snap) {
+    document.getElementById("snapshot-text").textContent = fill(L.snapNote, { date: +snap[2] + "/" + +snap[3] });
+    document.getElementById("snapshot-note").hidden = false;
+  }
+  var greet = document.getElementById("greet");
+  if (greet && L.greet) { var h = new Date().getHours();
+    greet.textContent = L.greet[h < 5 ? 0 : h < 11 ? 1 : h < 13 ? 2 : h < 18 ? 3 : 4]; }
+
+  function setNext(id, color, big, title, url, meta) {
+    var el = document.getElementById(id); if (!el) return;
+    el.style.setProperty("--c", color || "");
+    el.querySelector(".next-big").textContent = big;
+    var t = el.querySelector(".next-title"); t.textContent = "";
+    if (url) { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
+      a.className = "text-reset"; a.textContent = title; t.appendChild(a); } else t.textContent = title;
+    el.querySelector(".next-meta").textContent = meta;
+  }
+  function renderNext(now) {
+    var c = (D.classes || []).filter(function (x) { return new Date(x.end) > now; })[0];
+    if (c) {
+      var a = new Date(c.start) - now;
+      setNext("next-class", c.color, a > 0 ? fill(L.startsIn, { t: fmt(a) }) : fill(L.inClass, { t: fmt(new Date(c.end) - now) }),
+        c.course + " " + c.kind, "", relDay(c.start) + " " + hhmm(c.start) + "–" + hhmm(c.end) + (c.where ? " · " + c.where : ""));
+    } else setNext("next-class", "", "—", L.noMore, "", "");
+    var t = (D.tasks || []).filter(function (x) { return new Date(x.due) > now && !(x.manual && get("purrfessor-done:" + x.id)); })[0];
+    if (t) setNext("next-due", t.color, fill(L.left, { t: fmt(new Date(t.due) - now) }), t.title, t.url,
+      t.course + " · " + relDay(t.due) + " " + hhmm(t.due) + " " + L.due);
+    else setNext("next-due", "", "—", L.nothingDue, "", "");
+  }
+  function renderMeme(now) {
+    var M = D.meme, el = document.getElementById("meme");
+    if (!M || !M.start || !el) return;
+    var y = M.year, start = M.start, end = M.next;
+    if (now >= M.next) { y += 1; start = M.next; end = M.next + 365 * 864e5; }
+    var ms = now - start, weeks = Math.floor(ms / 6048e5), days = Math.floor(ms % 6048e5 / 864e5);
+    var pct = Math.min(100, ms / (end - start) * 100);
+    document.querySelector(".meme-year").textContent = y;
+    document.querySelector(".meme-num").textContent = weeks;
+    document.querySelector(".meme-elapsed").textContent = fill(L.elapsed, { w: weeks, d: days, year: y });
+    document.querySelector(".meme-pct").textContent = pct.toFixed(1) + "%";
+    document.querySelector(".meme-bar").style.width = pct.toFixed(2) + "%";
+  }
+  function tick() {
+    var now = Date.now();
+    renderMeme(now);
+    document.querySelectorAll(".task[data-due]:not(.done)").forEach(function (li) {
+      var ms = new Date(li.dataset.due) - now, b = li.querySelector(".cd");
+      if (b) { b.textContent = ms < 0 ? L.pastDue : fmt(ms); setBadge(b, badgeFor(ms)); }
+    });
+    document.querySelectorAll(".cls[data-start]").forEach(function (li) {
+      var a = new Date(li.dataset.start) - now, e = new Date(li.dataset.end) - now, b = li.querySelector(".cd"),
+          dot = li.querySelector(".status-dot"), live = a <= 0 && e > 0;
+      li.classList.toggle("past", e <= 0);
+      if (dot) dot.classList.toggle("status-dot-animated", live);
+      if (b) { b.textContent = a > 0 ? fill(L.in, { t: fmt(a) }) : live ? L.live : L.ended;
+        setBadge(b, live ? "bg-green-lt" : a > 0 && a < 36e5 ? "bg-orange-lt" : "bg-secondary-lt"); }
+    });
+    renderNext(now);
+  }
+
+  // Tasks outside Canvas: completion is stored on this device only
+  document.querySelectorAll(".tick").forEach(function (box) {
+    var li = box.closest(".task"), key = "purrfessor-done:" + box.dataset.key;
+    box.checked = !!get(key); li.classList.toggle("checked", box.checked);
+    box.addEventListener("change", function () {
+      li.classList.toggle("checked", box.checked); put(key, box.checked); renderNext(Date.now());
+    });
+  });
+  document.querySelectorAll(".preview").forEach(function (p) {
+    p.addEventListener("click", function () { p.classList.toggle("open"); });
+  });
+
+  var links = document.querySelectorAll(".nav-sticky .nav-link");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) links.forEach(function (a) {
+        a.classList.toggle("active", a.getAttribute("href") === "#" + e.target.id); }); });
+    }, { rootMargin: "-40% 0px -55% 0px" });
+    document.querySelectorAll("section[id]").forEach(function (s) { io.observe(s); });
+  }
+
+  var el = document.getElementById("calendar");
+  if (el && window.FullCalendar) {
+    var cal = D.calendar || {}, narrow = window.matchMedia("(max-width: 640px)").matches;
+    new FullCalendar.Calendar(el, {
+      locale: D.fcLocale || "en", timeZone: TZ,
+      initialView: narrow ? "timeGridDay" : "timeGridWeek",
+      headerToolbar: { left: "prev,next today", center: "title", right: narrow ? "timeGridDay,listWeek" : "timeGridWeek,listWeek" },
+      allDaySlot: true, allDayText: L.fcDue, nowIndicator: true, height: "auto",
+      slotMinTime: cal.slotMinTime || "08:00:00", slotMaxTime: cal.slotMaxTime || "19:00:00",
+      hiddenDays: cal.hiddenDays || [], events: cal.events || [],
+      eventClick: function (info) {
+        if (info.event.url) { info.jsEvent.preventDefault(); window.open(info.event.url, "_blank", "noopener"); }
+      }
+    }).render();
+  }
+  tick(); setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

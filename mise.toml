@@ -1,0 +1,24 @@
+# Local development / 本地开发（https://mise.jdx.dev + https://docs.astral.sh/uv）
+#   mise run setup     create .venv and install purrfessor + test deps / 创建虚拟环境并安装
+#   mise run test      full test suite with fake data / 用假数据跑完整测试
+#   mise run preview   build your page locally from purrfessor.toml (plaintext, stays local) / 本地生成页面预览
+#   mise run upload    upload purrfessor.toml as the PURRFESSOR_CONFIG secret and redeploy / 上传配置并重新部署
+#
+# Secrets for `preview` go in .env (git-ignored): CANVAS_TOKEN=…, optional GEMINI_API_KEY=…
+# 本地预览需要的密钥写在 .env（不进仓库）。
+
+[env]
+_.file = { path = ".env", redact = true }
+PYDANTIC_AI_NO_BANNER = "1"
+
+[tasks.setup]
+run = ["uv venv -q --python 3.12 .venv", "uv pip install -q -e '.[test]'"]
+
+[tasks.test]
+run = ".venv/bin/pytest"
+
+[tasks.preview]
+run = [".venv/bin/purrfessor build --config purrfessor.toml --out _build/index.html", "open _build/index.html"]
+
+[tasks.upload]
+run = ".venv/bin/purrfessor config-upload"
