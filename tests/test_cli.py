@@ -12,8 +12,8 @@ from purrfessor import cli, config
 class FakeGH:
     """Records every gh call; answers `repo view`, `secret list` and `api …/pages`."""
 
-    def __init__(self, secrets=(), pages=""):
-        self.secrets, self.pages, self.calls, self.set = list(secrets), pages, [], {}
+    def __init__(self, secrets=(), pages="", template=False):
+        self.secrets, self.pages, self.template, self.calls, self.set = list(secrets), pages, template, [], {}
 
     def __call__(self, *args, stdin=None, check=True):
         self.calls.append(args)
@@ -24,22 +24,33 @@ class FakeGH:
         if args[:2] == ("secret", "set"):
             self.set[args[2]] = stdin
         if args[0] == "api" and "--jq" in args:
-            return self.pages
+            return self.pages if args[1].endswith("/pages") else str(self.template).lower()
         return ""
+
+
+def typed(answers):
+    """A fake prompt: the next answer, then EOFError like a real terminal after Ctrl-D."""
+    answers = iter(answers)
+
+    def prompt(_=""):
+        try:
+            return next(answers)
+        except StopIteration:
+            raise EOFError from None
+    return prompt
 
 
 @pytest.fixture
 def run_init(tmp_path, monkeypatch, capsys):
     def run(answers, secrets_typed, gh=None):
         gh = gh or FakeGH()
-        answers, secrets_typed = iter(answers), iter(secrets_typed)
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(cli.shutil, "which", lambda _: "/usr/bin/gh")
         monkeypatch.setattr(cli, "gh", gh)
         monkeypatch.setattr(cli, "gh_ok", lambda *a: gh(*a) == "" and True)
         monkeypatch.setattr(cli, "canvas_whoami", lambda base, token: "Test Student" if token == "good" else None)
-        monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
-        monkeypatch.setattr(cli.getpass, "getpass", lambda prompt="": next(secrets_typed))
+        monkeypatch.setattr("builtins.input", typed(answers))
+        monkeypatch.setattr(cli.getpass, "getpass", typed(secrets_typed))
         cli.main(["init"])
         return gh, capsys.readouterr().out
     return run
@@ -84,6 +95,29 @@ def test_init_cannot_skip_a_secret_that_is_not_set(run_init):
     """Without an existing token, Enter is not accepted; same for the password."""
     gh, out = run_init(["ucr", "zh", "A"], ["", "good", "", "pw", "pw", ""])
     assert gh.set["CANVAS_TOKEN"] == "good" and gh.set["SITE_PASSWORD"] == "pw"
+
+
+def test_init_refuses_the_template_itself(run_init):
+    gh = FakeGH(template=True)
+    with pytest.raises(SystemExit, match="template"):
+        run_init([], [], gh)
+    assert not gh.set
+
+
+def test_init_stops_cleanly_on_ctrl_d(run_init):
+    with pytest.raises(SystemExit, match="Cancelled"):
+        run_init(["ucr", "zh", "A"], [])      # getpass hits the end of input
+
+
+def test_your_repo_is_origin_even_with_an_upstream_remote(tmp_path, monkeypatch):
+    """After `git remote add upstream <template>`, gh would pick the template; init must still use origin."""
+    import subprocess
+    monkeypatch.chdir(tmp_path)
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(["git", "remote", "add", "origin", "git@github.com:someone/my-today.git"], check=True)
+    subprocess.run(["git", "remote", "add", "upstream", "https://github.com/ShepherdLoveYou/purrfessor.git"], check=True)
+    monkeypatch.setattr(cli, "gh", FakeGH())
+    assert cli.your_repo() == "someone/my-today"
 
 
 # ---------- ci-env: page location and salt for the workflow ----------

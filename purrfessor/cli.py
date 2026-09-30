@@ -58,6 +58,22 @@ def canvas_whoami(base: str, token: str) -> str | None:
         return None
 
 
+def your_repo() -> str:
+    """owner/name of your copy, from the `origin` remote. (gh's own default prefers a remote named `upstream`,
+    which is the template once you pull framework updates.) Never the template itself.
+    你的仓库：取自 origin 远程（gh 默认会优先用名为 upstream 的远程，也就是模板本身）。"""
+    url = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True).stdout.strip()
+    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
+    repo = m.group(1) if m else gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner", check=False)
+    if not repo:
+        raise SystemExit("Run this inside your copy of the Purrfessor template (a GitHub repo).\n"
+                         "请在你用模板创建的 GitHub 仓库目录里运行。")
+    if gh("api", f"repos/{repo}", "--jq", ".is_template", check=False) == "true":
+        raise SystemExit(f"{repo} is a template. Run this in your own copy (Use this template → Create a new repository).\n"
+                         "这是模板仓库本身，请在你用模板创建的仓库里运行。")
+    return repo
+
+
 def set_secret(repo: str, name: str, value: str) -> None:
     gh("secret", "set", name, "-R", repo, stdin=value)
     print(f"  ✓ secret {name}")
@@ -67,10 +83,7 @@ def init() -> None:
     if not shutil.which("gh"):
         raise SystemExit("Please install the GitHub CLI (https://cli.github.com) and run `gh auth login` first.\n"
                          "请先安装 GitHub CLI 并登录（gh auth login）。")
-    repo = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner", check=False)
-    if not repo:
-        raise SystemExit("Run this inside your copy of the Purrfessor template (a GitHub repo).\n"
-                         "请在你用模板创建的 GitHub 仓库目录里运行。")
+    repo = your_repo()
     print(f"🧙🐱 Purrfessor · 喵教授 — setting up {repo}\n")
 
     if CONFIG.exists() and ask(f"Use the existing {CONFIG}? / 使用现有的 {CONFIG}？ (Y/n)", "y").lower() != "n":
@@ -161,7 +174,7 @@ def _preset_canvas(preset: str) -> str:
 
 
 def config_upload() -> None:
-    repo = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
+    repo = your_repo()
     set_secret(repo, "PURRFESSOR_CONFIG", CONFIG.read_text(encoding="utf-8"))
     gh("workflow", "run", "deploy.yml", "-R", repo)
     print("  ✓ redeploy started / 已触发重新部署")
@@ -217,7 +230,10 @@ def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     cmd, rest = (argv[0], argv[1:]) if argv else ("help", [])
     if cmd == "init":
-        init()
+        try:
+            init()
+        except (EOFError, KeyboardInterrupt):
+            raise SystemExit("\nCancelled. / 已取消。") from None
     elif cmd == "build":
         from .build import main as build
         build(rest)
