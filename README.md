@@ -182,7 +182,7 @@ About 10 minutes. You need a GitHub account, Python 3.11 or newer, and the [GitH
 ```mermaid
 flowchart LR
   cron["⏰ GitHub Actions<br>4× a day · 每天 4 次"] --> test["🧪 pytest<br>fake data · 假数据"]
-  test --> prev["📥 last page<br>上一份页面<br>decrypt on the runner"]
+  test --> prev["📥 last page · 上一份页面<br>decrypted on the runner<br>在临时机器上解密"]
   canvas[("🎓 Canvas API")] --> build
   banner[("🗓️ Class schedule<br>选课系统 (Banner)")] --> build
   prev --> build["🛠️ purrfessor build"]
