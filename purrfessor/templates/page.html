@@ -38,9 +38,9 @@
   .task.done .title, .task.checked .title { text-decoration: line-through; opacity: .5; }
   .task.checked .cd { opacity: .35; }
   .cls.past { opacity: .45; }
-  /* Big enough for a thumb: the box itself plus an invisible margin around it */
-  .tick { position: relative; width: 1.5rem; height: 1.5rem; }
-  .tick::after { content: ""; position: absolute; inset: -.5rem; }
+  /* Big enough for a thumb: the label around the box is the tap target (the padding is cancelled by the margin) */
+  .tick-hit { display: flex; margin: -.5rem; padding: .5rem; cursor: pointer; }
+  .tick { width: 1.5rem; height: 1.5rem; }
   .preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     cursor: pointer; white-space: pre-line; }
   .preview.open { display: block; }

@@ -82,8 +82,8 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
     if task.points:
         meta.append(t("pts", p=f"{task.points:g}"))
     meta.append(t.when(task.due, now.date()))
-    lead = (f'<input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '
-            f'aria-label="{t("tick_title")}">' if task.manual or not task.done
+    lead = (f'<label class="tick-hit"><input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '
+            f'aria-label="{t("tick_title")}"></label>' if task.manual or not task.done
             else f'<span class="status-dot status-{"green" if task.done else color} d-block"></span>')
     original = (f'<div class="text-secondary small original">{esc(task.title)}</div>'
                 if task.translated and same_words(task.translated) != same_words(task.title) else "")
