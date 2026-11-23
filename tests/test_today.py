@@ -335,3 +335,13 @@ def test_stat_cards_are_keyed_for_the_tick_script(build):
     page = build(pt("2026-10-09 12:00"), FakeCanvas(planner=[item(14, 1001, "Reading", pt("2026-10-10 23:59"))]))
     for key in ("overdue", "due_today", "due_3d"):
         assert f'data-stat="{key}"' in page.html
+
+
+def test_page_order_puts_the_todo_list_before_todays_classes(build):
+    """What is due comes before today's classes; the meme keeps its place below the two "next" cards; the nav follows
+    the same order."""
+    page = build(pt("2026-10-09 12:00"), FakeCanvas(planner=[item(15, 1001, "Reading", pt("2026-10-10 23:59"))]))
+    at = lambda key: page.html.index(key)  # noqa: E731
+    assert at('id="next-due"') < at('id="meme"') < at('id="todo"') < at('id="today"') < at('id="timetable"')
+    nav = re.findall(r'<a class="nav-link" href="#(\w+)"', page.html)
+    assert nav.index("todo") < nav.index("today")

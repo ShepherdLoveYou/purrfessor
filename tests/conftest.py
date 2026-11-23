@@ -215,7 +215,7 @@ def parse(html: str) -> Page:
     stats = {m.group(2): int(m.group(1)) for m in re.finditer(
         r'<div class="h1 mb-0 lh-1"[^>]*>(\d+)</div><div class="text-secondary small">([^<]+)</div>', html)}
     warnings = [text(m.group(1)) for m in re.finditer(r'<div class="alert alert-warning mt-3 mb-0"[^>]*>(.*?)</div>', html)]
-    today = html[html.index('id="today"'):html.index('id="todo"')]
+    today = html[html.index('id="today"'):].split("</section>")[0]
     today_classes = [text(m.group(1)) for m in re.finditer(
         r'<div class="col min-w-0"><div class="fw-medium">(.*?)</div>', today)]
     tomorrow = text(re.search(r'<i class="ti ti-arrow-right"></i> (.*?)</div>', today).group(1))

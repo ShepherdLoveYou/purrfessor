@@ -298,7 +298,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
          f'</div></div></div>']
     p += [f'<div class="alert alert-warning mt-3 mb-0" role="alert"><i class="ti ti-alert-triangle"></i> {esc(w)}</div>'
           for w in warnings]
-    nav = [("#today", "sun", "nav_today"), ("#todo", "checklist", "nav_todo"), ("#grades", "chart-bar", "nav_grades"),
+    nav = [("#todo", "checklist", "nav_todo"), ("#today", "sun", "nav_today"), ("#grades", "chart-bar", "nav_grades"),
            ("#timetable", "calendar-week", "nav_timetable"), ("#news", "speakerphone", "nav_news")]
     links = "".join(f'<a class="nav-link" href="{h}"><i class="ti ti-{i}"></i> {t(k)}</a>' for h, i, k in nav)
     if home_url:
@@ -324,7 +324,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
     tmr = classes_on(today + timedelta(days=1), classes, holidays, tz)
     tmr_html = ("、" if t.lang == "zh" else ", ").join(
         f'{c["start_dt"]:%H:%M} {esc(c["course"])} {esc(label(c, t))}' for c in tmr) if tmr else t("no_classes")
-    p.append(f'<div class="col-12"><section id="today" class="card"><div class="card-header"><h3 class="card-title">'
+    today_html = (f'<div class="col-12"><section id="today" class="card"><div class="card-header"><h3 class="card-title">'
              f'<i class="ti ti-sun me-1"></i>{t("today_classes")}</h3><div class="card-actions text-secondary small">'
              f'{esc(t("classes_count", weekday=t.weekday(today), n=len(today_cls)))}</div></div>'
              f'<div class="list-group list-group-flush">{rows}</div>'
@@ -354,6 +354,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
     p.append(f'<div class="col-12"><section id="todo" class="card"><div class="card-header"><h3 class="card-title">'
              f'<i class="ti ti-checklist me-1"></i>{t("todo_title")}</h3><div class="card-actions text-secondary small">'
              f'{t("todo_aside")}</div></div><div class="list-group list-group-flush">{"".join(body)}</div>{extra}</section></div>')
+    p.append(today_html)   # what is due comes first; today's classes sit right below it
 
     p.append(grades_card(list(grades), colors, t))
 

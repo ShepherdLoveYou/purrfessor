@@ -38,6 +38,9 @@
   .task.done .title, .task.checked .title { text-decoration: line-through; opacity: .5; }
   .task.checked .cd { opacity: .35; }
   .cls.past { opacity: .45; }
+  /* Big enough for a thumb: the box itself plus an invisible margin around it */
+  .tick { position: relative; width: 1.5rem; height: 1.5rem; }
+  .tick::after { content: ""; position: absolute; inset: -.5rem; }
   .preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     cursor: pointer; white-space: pre-line; }
   .preview.open { display: block; }
@@ -65,7 +68,7 @@
   .meme-num { font-variant-numeric: tabular-nums; }
   .meme-en .meme-cap { font-size: 4.1cqw; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
   .meme-foot { max-width: 560px; }
-  @media (max-width: 575.98px) { .cd { min-width: 4.5rem; } .page-title { font-size: 1.5rem; } }
+  @media (max-width: 575.98px) { .cd { min-width: 4.5rem; } .page-title { font-size: 1.5rem; } .tick { width: 1.75rem; height: 1.75rem; } }
 </style>
 </head>
 <body>
