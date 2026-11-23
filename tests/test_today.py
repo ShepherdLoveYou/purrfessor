@@ -314,3 +314,24 @@ def test_every_unfinished_task_can_be_ticked(build):
     assert 'data-key="canvas-assignment-8"' not in page.html
     # the "next deadline" card skips a ticked task: the script reads the same device-local key the box writes
     assert page.html.count('purrfessor-done:') >= 2
+
+
+def test_graded_without_submission_is_done(build):
+    """Work the teacher graded without a submission (in-class work) is finished, so it is never 'overdue';
+    graded-but-missing still is."""
+    due = pt("2026-10-09 23:59")
+    now = due + timedelta(days=2)
+    canvas = FakeCanvas(planner=[item(11, 1001, "In-class brainstorm", due, graded=True),
+                                 item(12, 1001, "Speech", due, graded=True, missing=True),
+                                 item(13, 1001, "Not graded", due)])
+    page = build(now, canvas)
+    assert page.state("canvas-assignment-11") == "done"
+    assert page.state("canvas-assignment-12") == "overdue"
+    assert page.state("canvas-assignment-13") == "overdue"
+    assert page.stats["逾期未交"] == 2
+
+
+def test_stat_cards_are_keyed_for_the_tick_script(build):
+    page = build(pt("2026-10-09 12:00"), FakeCanvas(planner=[item(14, 1001, "Reading", pt("2026-10-10 23:59"))]))
+    for key in ("overdue", "due_today", "due_3d"):
+        assert f'data-stat="{key}"' in page.html

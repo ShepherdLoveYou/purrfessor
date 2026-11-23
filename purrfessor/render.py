@@ -112,10 +112,10 @@ def class_html(c: dict, colors: dict, t: T) -> str:
             f'<div class="col-auto"><span class="badge bg-secondary-lt cd"></span></div></div></div>')
 
 
-def stat_card(icon: str, color: str, value: int, label_: str, href: str) -> str:
+def stat_card(icon: str, color: str, value: int, label_: str, href: str, key: str = "") -> str:
     return (f'<div class="col-6 col-lg-3"><a class="card card-sm card-link text-reset" href="{href}"><div class="card-body">'
             f'<div class="row align-items-center"><div class="col-auto"><span class="bg-{color} text-white avatar">'
-            f'<i class="ti ti-{icon} fs-2"></i></span></div><div class="col"><div class="h1 mb-0 lh-1">{value}</div>'
+            f'<i class="ti ti-{icon} fs-2"></i></span></div><div class="col"><div class="h1 mb-0 lh-1"{f' data-stat="{key}"' if key else ""}>{value}</div>'
             f'<div class="text-secondary small">{esc(label_)}</div></div></div></div></a></div>')
 
 
@@ -307,10 +307,10 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
 
     p.append('<div class="row row-cards">')
     p.append(stat_card("school", "blue", len(today_cls), t("stat_classes"), "#today"))
-    p.append(stat_card("alarm", "red", sum(x.due.date() == today for x in pending), t("stat_due_today"), "#todo"))
+    p.append(stat_card("alarm", "red", sum(x.due.date() == today for x in pending), t("stat_due_today"), "#todo", "due_today"))
     p.append(stat_card("hourglass-high", "orange", sum(x.due - now <= timedelta(days=3) for x in pending),
-                       t("stat_due_3d"), "#todo"))
-    p.append(stat_card("alert-triangle", "red" if overdue else "green", len(overdue), t("stat_overdue"), "#todo"))
+                       t("stat_due_3d"), "#todo", "due_3d"))
+    p.append(stat_card("alert-triangle", "red" if overdue else "green", len(overdue), t("stat_overdue"), "#todo", "overdue"))
     p.append(next_card("next-class", t("next_class"), "clock", t))
     p.append(next_card("next-due", t("next_due"), "flag", t))
     meme_html, meme_data = meme_card(now, t, tz) if S.on("meme") else ("", {})

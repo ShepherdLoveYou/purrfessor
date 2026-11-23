@@ -46,11 +46,11 @@ CODE = {c["id"]: c["course_code"] for c in COURSES}
 
 
 def item(pid, cid, title, due: datetime, kind="assignment", submitted=False, missing=False, excused=False,
-         marked=False, submittable=True, points=10):
+         marked=False, submittable=True, points=10, graded=False):
     return {"plannable_id": pid, "plannable_type": kind, "course_id": cid,
             "context_name": f"{CODE[cid]} - COURSE", "plannable_date": z(due),
             "plannable": {"title": title, "points_possible": points},
-            "submissions": ({"submitted": submitted, "missing": missing, "excused": excused, "graded": False}
+            "submissions": ({"submitted": submitted, "missing": missing, "excused": excused, "graded": graded}
                             if submittable else False),
             "planner_override": {"marked_complete": True} if marked else None,
             "html_url": f"/courses/{cid}/assignments/{pid}"}
@@ -213,7 +213,7 @@ def parse(html: str) -> Page:
         assert m.group(1) not in states, f"task {m.group(1)} is on the page more than once"
         states[m.group(1)] = m.group(2)
     stats = {m.group(2): int(m.group(1)) for m in re.finditer(
-        r'<div class="h1 mb-0 lh-1">(\d+)</div><div class="text-secondary small">([^<]+)</div>', html)}
+        r'<div class="h1 mb-0 lh-1"[^>]*>(\d+)</div><div class="text-secondary small">([^<]+)</div>', html)}
     warnings = [text(m.group(1)) for m in re.finditer(r'<div class="alert alert-warning mt-3 mb-0"[^>]*>(.*?)</div>', html)]
     today = html[html.index('id="today"'):html.index('id="todo"')]
     today_classes = [text(m.group(1)) for m in re.finditer(

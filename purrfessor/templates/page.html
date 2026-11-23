@@ -153,9 +153,26 @@
     document.querySelector(".meme-pct").textContent = pct.toFixed(1) + "%";
     document.querySelector(".meme-bar").style.width = pct.toFixed(2) + "%";
   }
+  // The three task counters ignore what is ticked off. A snapshot page keeps the numbers it was built with.
+  function renderStats(now) {
+    if (snap) return;
+    var n = { overdue: 0, due_today: 0, due_3d: 0 }, today = YMD.format(new Date(now));
+    document.querySelectorAll(".task[data-state]").forEach(function (li) {
+      var st = li.dataset.state, due = new Date(li.dataset.due);
+      if (st === "done" || li.classList.contains("checked")) return;
+      if (st === "overdue") { n.overdue++; return; }
+      if (YMD.format(due) === today) n.due_today++;
+      if (due - now <= 2592e5) n.due_3d++;
+    });
+    Object.keys(n).forEach(function (k) {
+      var el = document.querySelector('[data-stat="' + k + '"]'); if (el) el.textContent = n[k]; });
+    var av = document.querySelector('[data-stat="overdue"]'); av = av && av.closest(".row").querySelector(".avatar");
+    if (av) { av.classList.toggle("bg-red", n.overdue > 0); av.classList.toggle("bg-green", n.overdue === 0); }
+  }
   function tick() {
     var now = Date.now();
     renderMeme(now);
+    renderStats(now);
     document.querySelectorAll(".task[data-due]:not(.done)").forEach(function (li) {
       var ms = new Date(li.dataset.due) - now, b = li.querySelector(".cd");
       if (b) { b.textContent = ms < 0 ? L.pastDue : fmt(ms); setBadge(b, badgeFor(ms)); }
@@ -176,7 +193,7 @@
     var li = box.closest(".task"), key = "purrfessor-done:" + box.dataset.key;
     box.checked = !!get(key); li.classList.toggle("checked", box.checked);
     box.addEventListener("change", function () {
-      li.classList.toggle("checked", box.checked); put(key, box.checked); renderNext(Date.now());
+      li.classList.toggle("checked", box.checked); put(key, box.checked); renderNext(Date.now()); renderStats(Date.now());
     });
   });
   document.querySelectorAll(".preview").forEach(function (p) {
