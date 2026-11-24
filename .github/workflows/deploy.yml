@@ -19,6 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read     # lets the "wait for the artifact" step list this run's artifacts / 部署前等产物时要读本次运行的产物列表
   contents: read
   pages: write
   id-token: write
@@ -32,7 +33,7 @@ jobs:
     if: vars.PURRFESSOR_ENABLED == 'true'
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.retry.outputs.page_url || steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     env:
       PYDANTIC_AI_NO_BANNER: "1"
@@ -131,8 +132,39 @@ jobs:
         with:
           path: _site
 
+      # deploy-pages looks the artifact up through the API about a second after the upload ends, and GitHub's list is
+      # sometimes still empty by then ("No artifacts named github-pages were found"). Wait until it is listed.
+      # deploy-pages 在上传结束约 1 秒后就去查产物列表，GitHub 的列表偶尔还没同步（"No artifacts named github-pages
+      # were found"）。这里等产物出现在列表里再部署。
+      - name: Wait until the artifact is listed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 1 30); do
+            n=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" \
+                  --jq '[.artifacts[] | select(.name == "github-pages" and (.expired | not))] | length' 2>/dev/null || echo 0)
+            [ "$n" = "1" ] && { echo "artifact is listed"; exit 0; }
+            sleep 2
+          done
+          echo "::warning::the artifact is still not listed after 60 s; deploying anyway"
+
+      # One more try when GitHub's side hiccups ("Deployment failed, try again later"). The second step does not upload
+      # again, so there is still exactly one artifact.
+      # GitHub 那边偶尔出错（"Deployment failed, try again later"）时再试一次；第二次不会重新上传，产物仍只有一份。
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Pause before the retry
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::the first deployment failed; trying once more"
+          sleep 20
+
+      - name: Deploy to GitHub Pages (retry)
+        id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5
 
   # GitHub pauses scheduled workflows after 60 days without commits; this renews them through the API (no commits).
