@@ -113,9 +113,10 @@ def class_html(c: dict, colors: dict, t: T) -> str:
 
 
 def stat_card(icon: str, color: str, value: int, label_: str, href: str, key: str = "") -> str:
+    stat = f' data-stat="{key}"' if key else ""   # not inline: a nested same-type quote is a syntax error before Python 3.12
     return (f'<div class="col-6 col-lg-3"><a class="card card-sm card-link text-reset" href="{href}"><div class="card-body">'
             f'<div class="row align-items-center"><div class="col-auto"><span class="bg-{color} text-white avatar">'
-            f'<i class="ti ti-{icon} fs-2"></i></span></div><div class="col"><div class="h1 mb-0 lh-1"{f' data-stat="{key}"' if key else ""}>{value}</div>'
+            f'<i class="ti ti-{icon} fs-2"></i></span></div><div class="col"><div class="h1 mb-0 lh-1"{stat}>{value}</div>'
             f'<div class="text-secondary small">{esc(label_)}</div></div></div></div></a></div>')
 
 
