@@ -38,6 +38,10 @@ def same_words(s: str) -> str:
     return re.sub(r"[\W_]+", "", s.casefold())
 
 
+def shorten(s: str, n: int) -> str:
+    return s if len(s) <= n else s[:n].rstrip() + "…"
+
+
 def course_colors(names) -> dict[str, str]:
     return {n: COLORS[i % len(COLORS)] for i, n in enumerate(sorted(set(names)))}
 
@@ -96,6 +100,38 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
             f'<div class="col min-w-0"><div class="fw-medium title">{link(task.display_title, task.url)}</div>{original}'
             f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">{" · ".join(meta)}</div>'
             f'{note}</div><div class="col-auto">{badge}</div></div></div>')
+
+
+UNDATED_SHOWN, UNDATED_PER_COURSE = 8, 3      # at most 8 rows, and no course (31 placeholders…) fills them alone
+
+
+def undated_row(u: dict, colors: dict, t: T) -> str:
+    """Work with no due date: no tick box and no countdown (it is not a deadline); a date found in the
+    description is shown as a hint to check, never as a fact."""
+    pts = t("pts", p=f"{u['points']:g}")
+    hints = "".join(f'<div class="text-secondary small mt-1"><i class="ti ti-calendar-question"></i> '
+                    f'{esc(t("undated_hint", when=t.when(h["due"]), quote=shorten(h["quote"], 140)))}</div>' for h in u["hints"])
+    return (f'<div class="list-group-item undated-item"><div class="fw-medium title">{link(u["title"], u["url"])}</div>'
+            f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">'
+            f'{" · ".join([course_badge(u["course"], colors), pts, t("no_due")])}</div>{hints}</div>')
+
+
+def undated_html(items: list[dict], colors: dict, t: T, min_points: float) -> str:
+    """Collapsed list inside the to-do card: biggest points first, the same course at most UNDATED_PER_COURSE times,
+    UNDATED_SHOWN rows in all, then "+N more"."""
+    if not items:
+        return ""
+    shown, per_course = [], {}
+    for u in items:
+        if len(shown) < UNDATED_SHOWN and per_course.get(u["course"], 0) < UNDATED_PER_COURSE:
+            shown.append(u)
+            per_course[u["course"]] = per_course.get(u["course"], 0) + 1
+    rows = "".join(undated_row(u, colors, t) for u in shown)
+    if len(items) > len(shown):
+        rows += f'<div class="list-group-item text-secondary small">{t("undated_more", n=len(items) - len(shown))}</div>'
+    return (f'<details class="card-footer" id="undated"><summary class="text-primary fw-medium">{t("undated_n", n=len(items))}'
+            f'</summary><div class="text-secondary small mt-2">{esc(t("undated_help", pts=f"{min_points:g}"))}</div>'
+            f'<div class="list-group list-group-flush mt-2">{rows}</div></details>')
 
 
 def class_html(c: dict, colors: dict, t: T) -> str:
@@ -272,10 +308,11 @@ def grades_card(grades: list[dict], colors: dict, t: T) -> str:
 
 def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: list[Task], announcements: list[dict],
            warnings: list[str], ai_model: str = "", brief=None, changes=None, state=None, archive=(),
-           archive_base: str = "archive/", grades=(), home_url: str = "", from_banner: bool = True) -> str:
+           archive_base: str = "archive/", grades=(), undated=(), home_url: str = "", from_banner: bool = True) -> str:
     t, tz, today = T(S.language), S.tz, now.date()
     holidays = {str(h) for h in S.term.get("holidays", [])}
-    colors = course_colors([c["course"] for c in classes + online] + [x.course for x in tasks])
+    colors = course_colors([c["course"] for c in classes + online] + [x.course for x in tasks]
+                           + [u["course"] for u in undated])
     week = week_number(today, S.term)
     first, last = as_date(S.term["week1_monday"]), as_date(S.term["last_class_day"])
     total_weeks = (last - first).days // 7 + 1
@@ -349,6 +386,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
     if later:
         extra += (f'<details class="card-footer"><summary class="text-primary fw-medium">{t("later_n", n=len(later))}</summary>'
                   f'<div class="list-group list-group-flush mt-2">{"".join(task_html(x, now, colors, t, "later") for x in later)}</div></details>')
+    extra += undated_html(list(undated), colors, t, S.undated_min_points)
     if done:
         extra += (f'<details class="card-footer"><summary class="text-success fw-medium">{t("done_n", n=len(done))}</summary>'
                   f'<div class="list-group list-group-flush mt-2">{"".join(task_html(x, now, colors, t, "done") for x in done)}</div></details>')

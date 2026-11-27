@@ -98,7 +98,7 @@ def main(argv: list[str] | None = None) -> None:
     pattern = re.compile(S.banner.get("section_pattern", r"^([A-Z]+)_(\w+?)_(\d{3})_(\d{2})([WSUF])"))
 
     client = make_canvas(S)
-    courses, tasks, announcements, ai_model, grades = [], [], [], "", []
+    courses, tasks, announcements, ai_model, grades, undated = [], [], [], "", [], []
     if not os.environ.get("CANVAS_TOKEN"):
         warnings.append(t("warn_no_token"))
     else:
@@ -113,10 +113,15 @@ def main(argv: list[str] | None = None) -> None:
                 apply_ai(ai, tasks, announcements, S.tz)
                 ai_model = ai["model"]
             tasks += canvas.announcement_tasks(announcements, tasks, now, t)
-            if S.on("grades"):
+            if S.on("grades") or S.on("undated"):
                 try:
-                    grades = canvas.grades(canvas.submissions(client.get, courses, pattern), S.courses)
-                except Exception as e:  # noqa: BLE001 - grades are optional
+                    fetched = canvas.submissions(client.get, courses, pattern)   # one request per course, shared
+                    if S.on("grades"):
+                        grades = canvas.grades(fetched, S.courses)
+                    if S.on("undated"):
+                        undated = canvas.undated(fetched, S.courses, now, S.tz, S.canvas_url, S.undated_min_points,
+                                                 {x.aid for x in tasks if x.aid})
+                except Exception as e:  # noqa: BLE001 - grades and unscheduled work are optional
                     print(f"  · grades unavailable: {type(e).__name__}")
         except urllib.error.HTTPError as e:
             warnings.append(t("warn_token") if e.code == 401 else t("warn_http", code=e.code))
@@ -167,11 +172,13 @@ def main(argv: list[str] | None = None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render(now, S, classes, online, tasks, announcements, warnings, ai_model, brief=brief,
                           changes=changes, state=state, archive=archive, archive_base=args.archive_base,
-                          grades=grades, home_url=args.home_url, from_banner=from_banner), encoding="utf-8")
+                          grades=grades, undated=undated, home_url=args.home_url, from_banner=from_banner),
+                   encoding="utf-8")
     count = lambda src: sum(x.source == src for x in tasks)  # noqa: E731
     print(f"✓ {out} · {S.school} · {S.language} · Canvas {count('Canvas')} · from announcements {count('announcement')}"
           f" · recurring {len(tasks) - count('Canvas') - count('announcement')} · announcements {len(announcements)}"
-          f" · class meetings {len(timed)} + online {len(online)}" + (f" · AI {ai_model}" if ai_model else "")
+          f" · class meetings {len(timed)} + online {len(online)} · no due date {len(undated)}"
+          + (f" · AI {ai_model}" if ai_model else "")
           + "".join(f"\n  ⚠ {w}" for w in warnings))
 
 

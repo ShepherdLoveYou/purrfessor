@@ -45,6 +45,14 @@ class Settings:
         return bool(self.features.get(feature, True))
 
     @property
+    def undated_min_points(self) -> float:
+        """[features] undated_min_points: work without a due date is listed from this many points up (default 25)."""
+        try:
+            return float(self.features.get("undated_min_points", 25))
+        except (TypeError, ValueError):
+            return 25.0
+
+    @property
     def page_path(self) -> str:
         """[site] path = "today" → "today/": the page is published at <site>/today/. "" = the site root."""
         p = str(self.site.get("path", "")).strip("/")
@@ -97,7 +105,8 @@ def load(path: str | Path | None) -> Settings:
         notes=cfg.get("notes", []),
         classes=cfg.get("classes", []),
         recurring=cfg.get("recurring", []),
-        features={"agent": True, "meme": True, "grades": True, "translate": True, **cfg.get("features", {})},
+        features={"agent": True, "meme": True, "grades": True, "undated": True, "translate": True,
+                  **cfg.get("features", {})},
         site=cfg.get("site", {}),
         warnings=warnings,
     )

@@ -53,6 +53,14 @@ def strip_html(h: str) -> str:
 
 # ---------------------------------------------------------------- assignments
 
+def assignment_id(kind: str | None, plannable_id, plannable: dict) -> int | None:
+    """The Canvas assignment behind a planner item: itself, or (quizzes, graded discussions) the one it links to."""
+    try:
+        return int(plannable_id if kind == "assignment" else plannable.get("assignment_id"))
+    except (TypeError, ValueError):
+        return None
+
+
 def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]:
     items = get("planner/items", {
         "start_date": (now - timedelta(days=120)).date().isoformat(),   # keep long-overdue work
@@ -74,7 +82,7 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             id=f"canvas-{kind}-{it.get('plannable_id')}", title=p.get("title") or p.get("name") or "(untitled)",
             course=names.get(it.get("course_id")) or course_label(it.get("context_name", "")), due=when,
             url=urllib.parse.urljoin(base_url, it.get("html_url") or ""), source="Canvas", kind=kind,
-            points=p.get("points_possible"),
+            points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p),
             # graded without a submission (in-class work, grades the teacher typed in) is finished too, unless Canvas
             # also flags it missing
             done=bool(subs.get("submitted") or subs.get("excused") or override.get("marked_complete")
@@ -210,3 +218,51 @@ def grades(fetched: Fetched, names: dict) -> list[dict]:
         m["earned"], m["possible"] = round(m["earned"], 2), round(m["possible"], 2)
         m["rate"] = round(m["earned"] / m["possible"] * 100, 1) if m["possible"] else None
     return sorted(merged.values(), key=lambda g: g["course"])
+
+
+def handed_in(s: dict) -> bool:
+    """A submission record that is submitted, graded or excused (Canvas workflow_state, with the plain fields as backup)."""
+    return bool(s.get("excused") or s.get("submitted_at") or s.get("graded_at") or s.get("score") is not None
+                or s.get("workflow_state") in ("submitted", "graded", "pending_review"))
+
+
+def undated(fetched: Fetched, names: dict, now: datetime, tz, base_url: str, min_points: float = 25,
+            known: frozenset | set = frozenset()) -> list[dict]:
+    """Published work worth `min_points` or more that has no due date and nothing handed in yet: the planner only
+    lists dated items, so the biggest project or exam of the term can be missing from the page. Biggest first.
+    Work that is excused, graded, locked, unpublished or kept out of the final grade is left out; so is anything
+    already on the page (`known` assignment ids). A date in the description is only a hint ("hints"), read by the
+    same rule-based helper as announcements, never a deadline.
+    没有截止日期的大作业：planner 只列有日期的项，所以学期里最大的作业可能不在页面上。作业说明里的日期只当提示。"""
+    out = []
+    for c, subs in fetched:
+        course = names.get(c["id"]) or course_label(c.get("course_code", ""))
+        for s in subs:
+            a = s.get("assignment") or {}
+            points = a.get("points_possible")
+            if not isinstance(points, (int, float)) or points <= 0 or points < min_points:
+                continue
+            if a.get("due_at") or s.get("cached_due_date"):
+                continue                           # dated: the planner has it (or will, once it is near)
+            if a.get("published") is False or a.get("workflow_state") in ("unpublished", "deleted"):
+                continue
+            if a.get("omit_from_final_grade") or a.get("hide_in_gradebook") or "not_graded" in (a.get("submission_types") or []):
+                continue                           # practice / survey work: it does not count towards the grade
+            if handed_in(s):
+                continue
+            lock = parse_iso(a.get("lock_at"), tz)
+            if lock and lock < now:
+                continue                           # closed for good
+            aid = a.get("id") or s.get("assignment_id")
+            if aid in known:
+                continue
+            seen, hints = set(), []
+            for m in deadline_mentions(strip_html(a.get("description") or ""), now, tz):
+                if m["due"] >= now and m["due"] not in seen:
+                    seen.add(m["due"])
+                    hints.append({"due": m["due"], "quote": m["quote"]})
+            out.append({"id": f"canvas-undated-{aid}", "title": a.get("name") or "(untitled)", "course": course,
+                        "points": points, "hints": sorted(hints, key=lambda h: h["due"])[:2],
+                        "url": a.get("html_url") or (urllib.parse.urljoin(base_url, f"/courses/{c['id']}/assignments/{aid}")
+                                                    if aid else "")})
+    return sorted(out, key=lambda u: (-u["points"], u["course"], u["title"]))

@@ -74,7 +74,7 @@ def test_english_warnings_and_countdowns(build):
 
 
 def test_features_can_be_switched_off(build):
-    config = __import__("conftest").CONFIG + "\n[features]\nmeme = false\ngrades = false\n"
+    config = __import__("conftest").CONFIG + "\n[features]\nmeme = false\ngrades = false\nundated = false\n"
     canvas = FakeCanvas(submissions={1001: [{"score": 9, "missing": False, "late": False,
                                               "assignment": {"points_possible": 10}}]})
     page = build(NOW, canvas, config=config)

@@ -56,6 +56,20 @@ def item(pid, cid, title, due: datetime, kind="assignment", submitted=False, mis
             "html_url": f"/courses/{cid}/assignments/{pid}"}
 
 
+def submission_row(aid, name, points, due: datetime | None = None, cid=1001, lock: datetime | None = None,
+                   state="unsubmitted", score=None, excused=None, submitted: datetime | None = None,
+                   graded_at: datetime | None = None, description="", **assignment):
+    """One students/submissions record with its assignment, as Canvas returns it (due=None: no due date)."""
+    return {"assignment_id": aid, "score": score, "workflow_state": state, "excused": excused, "missing": False,
+            "late": False, "submitted_at": z(submitted) if submitted else None,
+            "graded_at": z(graded_at) if graded_at else None, "cached_due_date": z(due) if due else None,
+            "assignment": {"id": aid, "name": name, "points_possible": points, "published": True,
+                           "workflow_state": "published", "due_at": z(due) if due else None,
+                           "lock_at": z(lock) if lock else None, "description": description,
+                           "html_url": f"https://canvas.test/courses/{cid}/assignments/{aid}",
+                           "omit_from_final_grade": False, **assignment}}
+
+
 def announcement(aid, cid, title, message, posted: datetime, unread=True):
     return {"id": aid, "title": title, "message": message, "posted_at": z(posted),
             "context_code": f"course_{cid}", "html_url": f"https://canvas.test/courses/{cid}/announcements/{aid}",

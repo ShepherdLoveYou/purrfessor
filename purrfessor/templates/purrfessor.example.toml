@@ -86,4 +86,6 @@ name = "Alex"
 agent = true        # today's brief by the self-improving AI agent (needs GEMINI_API_KEY) / 今日简报（需要 Gemini key）
 meme = true         # the wizard-cat year counter / 巫师猫表情包
 grades = true       # grades & missing work card / 成绩与缺交
+undated = true      # collapsed list of big work that has no due date in Canvas / 折叠列表：Canvas 里没写截止日期的大作业
+# undated_min_points = 25   # only list such work worth at least this many points / 至少多少分才列出
 translate = true    # Chinese UI only: translate assignment titles / 仅中文界面：翻译作业标题
