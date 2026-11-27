@@ -86,6 +86,7 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             course=names.get(it.get("course_id")) or course_label(it.get("context_name", "")), due=when,
             url=urllib.parse.urljoin(base_url, it.get("html_url") or ""), source="Canvas", kind=kind,
             points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p), graded=graded,
+            feedback=bool(subs.get("has_feedback")),
             # graded without a submission (in-class work, grades the teacher typed in) is finished too, unless Canvas
             # also flags it missing
             done=bool(subs.get("submitted") or subs.get("excused") or override.get("marked_complete")

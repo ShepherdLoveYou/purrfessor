@@ -23,6 +23,7 @@ class Task:
     aid: int | None = None    # Canvas assignment id behind this item (a quiz's differs from its own id)
     graded: bool = False      # graded and the grade is posted (excused work is not "graded")
     score: float | None = None  # points earned, when graded and Canvas shows them
+    feedback: bool = False    # the grader left comments (only the fact: the text is private and never kept)
 
     @property
     def manual(self) -> bool:

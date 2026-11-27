@@ -75,15 +75,20 @@ def recurring_tasks(now: datetime, recurring: list[dict], tz) -> list[Task]:
     return out
 
 
+DONE_KEPT = timedelta(days=3)          # finished work stays on the list this long after its due time…
+FEEDBACK_KEPT = timedelta(days=14)     # …and longer when the grader left feedback (it usually comes days after the due time)
+
+
 def classify(now: datetime, tasks: list[Task], term: dict) -> tuple[list[Task], list[Task], list[Task]]:
     """→ (overdue, pending, recently done). The page and the agent use this same rule.
     Overdue = Canvas task not submitted and past due, this term only. Off-Canvas tasks are never overdue:
-    they drop off 12 h after their due time."""
+    they drop off 12 h after their due time. Done work stays DONE_KEPT (FEEDBACK_KEPT with feedback)."""
     term_start = as_date(term["week1_monday"]) - timedelta(days=14)
     overdue = sorted((t for t in tasks if not t.done and not t.manual and t.due < now and t.due.date() >= term_start),
                      key=lambda t: t.due)
     ids = {t.id for t in overdue}
     pending = sorted((t for t in tasks if not t.done and t.due >= now - timedelta(hours=12) and t.id not in ids),
                      key=lambda t: t.due)
-    done = sorted((t for t in tasks if t.done and t.due >= now - timedelta(days=3)), key=lambda t: t.due)
+    done = sorted((t for t in tasks if t.done and t.due >= now - (FEEDBACK_KEPT if t.feedback else DONE_KEPT)),
+                  key=lambda t: t.due)
     return overdue, pending, done

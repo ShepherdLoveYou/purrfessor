@@ -26,7 +26,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "undated_help": "Published work worth {pts}+ points that Canvas lists without a due date. A date in the description "
                         "is read automatically and may not be a deadline: open the item to check.",
         "undated_hint": "The description mentions {when}: “{quote}” — please check",
-        "mark_done": "Mark as done", "pts": "{p} pts", "from_announcement": "From announcement: {title}",
+        "mark_done": "Mark as done", "has_feedback": "Feedback", "pts": "{p} pts", "from_announcement": "From announcement: {title}",
         "ann_note_ai": "“{quote}” — read from the announcement by AI; open it to double-check",
         "ann_note_rule": "“{quote}” — date read from the announcement; open it to double-check",
         "timetable": "Timetable", "timetable_aside": "From the class schedule · top row = deadlines that day",
@@ -81,7 +81,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "undated_n": "还没设截止日期 · {n} 项", "no_due": "没有截止日期", "undated_more": "还有 {n} 项没列出",
         "undated_help": "Canvas 里没有写截止日期、分值 {pts} 分以上的作业。作业说明里的日期是自动读出来的，不一定是截止时间，请点开作业核对。",
         "undated_hint": "作业说明里提到 {when}：“{quote}” —— 请点开核对",
-        "mark_done": "我做完了", "pts": "{p} 分", "from_announcement": "公告提到：{title}",
+        "mark_done": "我做完了", "has_feedback": "有评语", "pts": "{p} 分", "from_announcement": "公告提到：{title}",
         "ann_note_ai": "“{quote}” —— AI 从公告里读出来的，请点开核对",
         "ann_note_rule": "“{quote}” —— 日期是从公告里自动读的，请点开核对",
         "timetable": "课程表", "timetable_aside": "自动读取选课系统 · 最上面一行是当天的截止",

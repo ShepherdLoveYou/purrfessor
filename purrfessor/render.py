@@ -59,6 +59,12 @@ def link(text: str, url: str, cls: str = "text-reset") -> str:
     return f'<a class="{cls}" href="{esc(url)}" target="_blank" rel="noopener">{esc(text)}</a>' if url else esc(text)
 
 
+def link_badge(inner: str, url: str, color: str) -> str:
+    """A small badge that opens `url` (plain badge when there is none). `inner` is trusted HTML."""
+    return (f'<a class="badge {color}" href="{esc(url)}" target="_blank" rel="noopener">{inner}</a>' if url
+            else f'<span class="badge {color}">{inner}</span>')
+
+
 def where_html(c: dict, t: T) -> str:
     where, url = c.get("where", ""), c.get("link", "")
     if where.startswith("http"):
@@ -86,6 +92,8 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
     if task.points:
         meta.append(t("pts", p=f"{task.points:g}"))
     meta.append(t.when(task.due, now.date()))
+    if task.feedback:      # the comment itself stays on Canvas: the badge only links to where it is
+        meta.append(link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt"))
     lead = (f'<label class="tick-hit"><input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '
             f'aria-label="{t("tick_title")}"></label>' if task.manual or not task.done
             else f'<span class="status-dot status-{"green" if task.done else color} d-block"></span>')
