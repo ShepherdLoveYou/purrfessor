@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> None:
                     fetched = canvas.submissions(client.get, courses, pattern)   # one request per course, shared
                     if S.on("grades"):
                         grades = canvas.grades(fetched, S.courses)
+                    canvas.attach_submissions(tasks, fetched, scores=S.on("grades"))
                     if S.on("undated"):
                         undated = canvas.undated(fetched, S.courses, now, S.tz, S.canvas_url, S.undated_min_points,
                                                  {x.aid for x in tasks if x.aid})

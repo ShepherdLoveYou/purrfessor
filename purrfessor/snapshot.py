@@ -30,7 +30,8 @@ def make_state(now, tasks, announcements, classes) -> dict:
     return {
         "generated": now.isoformat(),
         "tasks": {t.id: {"title": t.display_title, "course": t.course, "due": t.due.isoformat(),
-                         "done": t.done, "source": t.source} for t in tasks if t.source in TRACKED},
+                         "done": t.done, "source": t.source, "graded": t.graded, "score": t.score,
+                         "points": t.points} for t in tasks if t.source in TRACKED},
         "announcements": {str(a["id"]): {"title": a.get("ai_title") or a["title"], "course": a["course"]}
                           for a in announcements},
         "classes": sorted({f'{c["course"]}|{c.get("kind", "")}|{",".join(c.get("days", []))}|'
@@ -38,8 +39,18 @@ def make_state(now, tasks, announcements, classes) -> dict:
     }
 
 
+def newly_graded(old: dict, new: dict) -> bool:
+    """A grade appeared, or its score changed, since the previous snapshot. A snapshot written before grades were
+    tracked has no "graded" key: then nothing is announced, or every graded item would be "new" once."""
+    if "graded" not in old or not new.get("graded"):
+        return False
+    if not old["graded"]:
+        return True
+    return None not in (old.get("score"), new.get("score")) and old["score"] != new["score"]
+
+
 def diff(prev: dict | None, cur: dict) -> dict:
-    """Compare with the previous snapshot: new tasks, just submitted, due date changed, withdrawn,
+    """Compare with the previous snapshot: new tasks, just submitted, due date changed, withdrawn, newly graded,
     new announcements, timetable changes."""
     if not prev:
         return {}
@@ -54,6 +65,8 @@ def diff(prev: dict | None, cur: dict) -> dict:
         "completed": [dict(id=k, **v) for k, v in c.items() if k in p and v["done"] and not p[k]["done"]],
         "due_changed": [dict(id=k, old_due=p[k]["due"], **v) for k, v in c.items()
                         if k in p and v["due"] != p[k]["due"]],
+        "graded": [dict(id=k, old_score=p[k].get("score"), **v) for k, v in c.items()
+                   if k in p and newly_graded(p[k], v)],
         # only items that vanished before their due time (withdrawn by the instructor), not ones that simply expired
         "removed": [dict(id=k, **v) for k, v in p.items()
                     if k not in c and not v["done"] and v["due"] > now],

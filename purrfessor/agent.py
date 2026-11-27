@@ -130,7 +130,7 @@ def get_schedule(ctx, day: str = "today") -> dict:
 
 
 def get_changes(ctx) -> dict:
-    """Changes since the last snapshot: new tasks, submitted, due dates moved, withdrawn, new announcements, timetable changes."""
+    """Changes since the last snapshot: new tasks, submitted, due dates moved, newly graded, withdrawn, new announcements, timetable changes."""
     return ctx.deps.changes or {"note": "no previous snapshot, or nothing changed"}
 
 

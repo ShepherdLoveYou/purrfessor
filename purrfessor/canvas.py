@@ -14,6 +14,7 @@ from typing import Callable
 from .model import Task, parse_iso
 
 Get = Callable[..., object]
+Fetched = list[tuple[dict, list[dict]]]       # (course, its students/submissions): see submissions()
 
 
 class Canvas:
@@ -78,11 +79,13 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             continue      # nothing to submit on Canvas (paper work, readings): drop once it's past
         subs = it["submissions"] if isinstance(it.get("submissions"), dict) else {}
         override = it.get("planner_override") or {}
+        # a grade the teacher has not posted yet is not visible to the student: not "graded" either
+        graded = bool(subs.get("graded") and not subs.get("excused") and subs.get("posted_at", True))
         out.append(Task(
             id=f"canvas-{kind}-{it.get('plannable_id')}", title=p.get("title") or p.get("name") or "(untitled)",
             course=names.get(it.get("course_id")) or course_label(it.get("context_name", "")), due=when,
             url=urllib.parse.urljoin(base_url, it.get("html_url") or ""), source="Canvas", kind=kind,
-            points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p),
+            points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p), graded=graded,
             # graded without a submission (in-class work, grades the teacher typed in) is finished too, unless Canvas
             # also flags it missing
             done=bool(subs.get("submitted") or subs.get("excused") or override.get("marked_complete")
@@ -97,6 +100,21 @@ def details(get: Get, task: Task) -> str:
         return task.note or "(not on Canvas — no details)"
     data = get(f"courses/{m[1]}/{m[2]}/{m[3]}")
     return strip_html(data.get("description") or data.get("message") or "") if isinstance(data, dict) else ""
+
+
+def attach_submissions(tasks: list[Task], fetched: Fetched, scores: bool = True) -> None:
+    """Add what only the students/submissions data has: the points earned on graded work. It is the data grades() already
+    fetched (matched by assignment id), so no request per item. Items without a match stay as they are."""
+    by_aid = {}
+    for _, subs in fetched:
+        for s in subs:
+            aid = s.get("assignment_id") or (s.get("assignment") or {}).get("id")
+            if aid is not None:
+                by_aid[aid] = s
+    for task in tasks:
+        s = by_aid.get(task.aid)
+        if s is not None and scores and task.graded and isinstance(s.get("score"), (int, float)):
+            task.score = float(s["score"])
 
 
 # ---------------------------------------------------------------- announcements
@@ -177,9 +195,6 @@ def announcement_tasks(anns: list[dict], canvas_tasks: list[Task], now: datetime
 
 
 # ---------------------------------------------------------------- submissions: grades, scores, unscheduled work
-
-Fetched = list[tuple[dict, list[dict]]]       # (course, its students/submissions)
-
 
 def submissions(get: Get, courses: list[dict], section_pattern: re.Pattern) -> Fetched:
     """The student's submission records (with the assignment info) of every real course: one request per course.

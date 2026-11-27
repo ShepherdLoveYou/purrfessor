@@ -249,6 +249,16 @@ def brief_card(brief, tasks: list[Task], colors: dict, memory: dict, t: T) -> st
             + '</section></div>')
 
 
+def grade_html(x: dict, t: T) -> str:
+    """' · 144/150' (and the old score when a grade changed) for a newly graded task; nothing if no score is shown."""
+    if x.get("score") is None:
+        return ""
+    text = f'{x["score"]:g}/{x["points"]:g}' if x.get("points") else f'{x["score"]:g}'
+    if x.get("old_score") is not None:
+        text += " " + t("ch_graded_was", old=f'{x["old_score"]:g}')
+    return f' · <b>{esc(text)}</b>'
+
+
 def changes_card(changes: dict, colors: dict, t: T) -> str:
     """What changed since the last snapshot — computed by code, not by the AI."""
     if not changes:
@@ -263,6 +273,8 @@ def changes_card(changes: dict, colors: dict, t: T) -> str:
     for x in changes.get("due_changed", []):
         rows.append(("calendar-event", "orange", t("ch_due"),
                      f'{course_badge(x["course"], colors)} {esc(x["title"])} · {esc(when(x["old_due"]))} → <b>{esc(when(x["due"]))}</b>'))
+    for x in changes.get("graded", []):
+        rows.append(("award", "green", t("ch_graded"), f'{course_badge(x["course"], colors)} {esc(x["title"])}{grade_html(x, t)}'))
     for x in changes.get("removed", []):
         rows.append(("trash", "secondary", t("ch_removed"), f'{course_badge(x["course"], colors)} {esc(x["title"])}'))
     for a in changes.get("new_announcements", []):

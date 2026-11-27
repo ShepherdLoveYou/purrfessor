@@ -46,12 +46,22 @@ CODE = {c["id"]: c["course_code"] for c in COURSES}
 
 
 def item(pid, cid, title, due: datetime, kind="assignment", submitted=False, missing=False, excused=False,
-         marked=False, submittable=True, points=10, graded=False):
+         marked=False, submittable=True, points=10, graded=False, posted=True, feedback=False,
+         lock: datetime | None = None, aid=None):
+    """A planner item. graded+posted = the grade is visible; feedback = the grader left a comment (its text is
+    in the response, as in Canvas); lock = the plannable's lock_at; aid = the assignment behind a quiz."""
+    plannable = {"title": title, "points_possible": points}
+    if lock:
+        plannable["lock_at"] = z(lock)
+    if aid:
+        plannable["assignment_id"] = aid
+    subs = {"submitted": submitted, "missing": missing, "excused": excused, "graded": graded,
+            "posted_at": z(due) if graded and posted else None, "has_feedback": feedback, "needs_grading": False}
+    if feedback:
+        subs["feedback"] = {"comment": "PRIVATE-COMMENT-TEXT", "author_name": "A TA"}
     return {"plannable_id": pid, "plannable_type": kind, "course_id": cid,
             "context_name": f"{CODE[cid]} - COURSE", "plannable_date": z(due),
-            "plannable": {"title": title, "points_possible": points},
-            "submissions": ({"submitted": submitted, "missing": missing, "excused": excused, "graded": graded}
-                            if submittable else False),
+            "plannable": plannable, "submissions": subs if submittable else False,
             "planner_override": {"marked_complete": True} if marked else None,
             "html_url": f"/courses/{cid}/assignments/{pid}"}
 
