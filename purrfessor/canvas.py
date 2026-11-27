@@ -168,18 +168,30 @@ def announcement_tasks(anns: list[dict], canvas_tasks: list[Task], now: datetime
     return out
 
 
-# ---------------------------------------------------------------- grades
+# ---------------------------------------------------------------- submissions: grades, scores, unscheduled work
 
-def grades(get: Get, courses: list[dict], names: dict, section_pattern: re.Pattern) -> list[dict]:
-    """Per course: current grade (often hidden by instructors), unweighted rate on graded work,
-    missing and late counts. Lecture + discussion Canvas courses are merged by display name."""
-    rows = []
+Fetched = list[tuple[dict, list[dict]]]       # (course, its students/submissions)
+
+
+def submissions(get: Get, courses: list[dict], section_pattern: re.Pattern) -> Fetched:
+    """The student's submission records (with the assignment info) of every real course: one request per course.
+    Grades, scores, lock times and work without a due date all read this, so nothing is fetched twice.
+    每门课取一次提交记录（带作业信息），成绩、分数、锁定时间、没有截止日期的作业都从这里读。"""
+    out = []
     for c in courses:
         if not section_pattern.match(c.get("course_code", "")):
             continue                               # skip orientation / non-course sites
+        out.append((c, get(f"courses/{c['id']}/students/submissions",
+                           {"student_ids[]": "self", "include[]": "assignment", "per_page": 100})))
+    return out
+
+
+def grades(fetched: Fetched, names: dict) -> list[dict]:
+    """Per course: current grade (often hidden by instructors), unweighted rate on graded work,
+    missing and late counts. Lecture + discussion Canvas courses are merged by display name."""
+    rows = []
+    for c, subs in fetched:
         enr = next((e for e in c.get("enrollments") or [] if e.get("type") == "student"), {})
-        subs = get(f"courses/{c['id']}/students/submissions",
-                   {"student_ids[]": "self", "include[]": "assignment", "per_page": 100})
         graded = [s for s in subs if s.get("score") is not None and (s.get("assignment") or {}).get("points_possible")
                   and not (s.get("assignment") or {}).get("omit_from_final_grade")]
         rows.append({"course": names.get(c["id"]) or course_label(c.get("course_code", "")),

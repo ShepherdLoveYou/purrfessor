@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> None:
             tasks += canvas.announcement_tasks(announcements, tasks, now, t)
             if S.on("grades"):
                 try:
-                    grades = canvas.grades(client.get, courses, S.courses, pattern)
+                    grades = canvas.grades(canvas.submissions(client.get, courses, pattern), S.courses)
                 except Exception as e:  # noqa: BLE001 - grades are optional
                     print(f"  · grades unavailable: {type(e).__name__}")
         except urllib.error.HTTPError as e:
