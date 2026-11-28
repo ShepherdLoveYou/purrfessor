@@ -42,7 +42,13 @@ COURSES = [
         {"name": "DEMO_002A_010_26F - DEMO"}, {"name": "DEMO_002A_021_26F - DEMO"}]},
     {"id": 1003, "course_code": "Orientation 2026", "sections": []},   # not a real course: ignored
 ]
-CODE = {c["id"]: c["course_code"] for c in COURSES}
+# a school whose course codes look nothing like UCR's, and whose config has no [banner] section_pattern
+GENERIC_COURSES = [
+    {"id": 2001, "course_code": "BIO101-FA26", "enrollments": [{"type": "student", "computed_current_score": 88.0}],
+     "sections": [{"name": "BIO101-FA26 Lecture"}]},
+    {"id": 2002, "course_code": "Staff room", "enrollments": [{"type": "teacher"}], "sections": []},   # not a student there
+]
+CODE = {c["id"]: c["course_code"] for c in COURSES + GENERIC_COURSES}
 
 
 def item(pid, cid, title, due: datetime, kind="assignment", submitted=False, missing=False, excused=False,
@@ -92,6 +98,7 @@ class FakeCanvas:
     announcements: list = field(default_factory=list)
     fail: int | None = None          # e.g. 401: token expired
     submissions: dict = field(default_factory=dict)   # course id → submissions (grades)
+    courses: list | None = None      # the courses Canvas returns (None: COURSES)
     grades_fail: bool = False
     calls: list = field(default_factory=list)
 
@@ -101,7 +108,7 @@ class FakeCanvas:
         if self.fail:
             raise urllib.error.HTTPError(f"https://canvas.test/{path}", self.fail, "fail", {}, None)
         if path == "courses":
-            return COURSES
+            return COURSES if self.courses is None else self.courses
         if path == "planner/items":
             lo, hi = date.fromisoformat(params["start_date"]), date.fromisoformat(params["end_date"])
             return [i for i in self.planner
@@ -201,6 +208,20 @@ due = "23:59"
 from = "2026-10-02"
 until = "2026-12-04"
 url = "https://hw.test"
+"""
+
+
+GENERIC_CONFIG = """
+language = "{lang}"
+name = "Tester"
+
+[school]
+name = "Generic U"
+canvas_url = "https://canvas.test"
+timezone = "America/Los_Angeles"
+
+[courses]
+"2001" = "BIO 101"
 """
 
 

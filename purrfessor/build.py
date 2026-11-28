@@ -27,6 +27,9 @@ from .schedule import apply_notes, classes_on, classify, label, recurring_tasks
 from .snapshot import carry_memory, diff, load_prev_state, make_state
 
 
+DEFAULT_SECTION_PATTERN = r"^([A-Z]+)_(\w+?)_(\d{3})_(\d{2})([WSUF])"   # for a [banner] url given without a pattern
+
+
 def make_canvas(S: Settings):
     """Factory kept separate so tests can swap in a fake Canvas."""
     return canvas.Canvas(S.canvas_url, os.environ.get("CANVAS_TOKEN", ""))
@@ -95,7 +98,8 @@ def main(argv: list[str] | None = None) -> None:
     t = T(S.language)
     now = datetime.fromisoformat(args.now).astimezone(S.tz) if args.now else datetime.now(S.tz)
     warnings = [t(w) for w in S.warnings]
-    pattern = re.compile(S.banner.get("section_pattern", r"^([A-Z]+)_(\w+?)_(\d{3})_(\d{2})([WSUF])"))
+    # only a school preset knows its course-code format: without one, nothing below assumes any
+    section_pattern = re.compile(S.banner["section_pattern"]) if S.banner.get("section_pattern") else None
 
     client = make_canvas(S)
     courses, tasks, announcements, ai_model, grades, undated = [], [], [], "", [], []
@@ -115,7 +119,7 @@ def main(argv: list[str] | None = None) -> None:
             tasks += canvas.announcement_tasks(announcements, tasks, now, t)
             if S.on("grades") or S.on("undated"):
                 try:
-                    fetched = canvas.submissions(client.get, courses, pattern)   # one request per course, shared
+                    fetched = canvas.submissions(client.get, courses, section_pattern)   # one request per course, shared
                     if S.on("grades"):
                         grades = canvas.grades(fetched, S.courses)
                     canvas.attach_submissions(tasks, fetched, S.tz, scores=S.on("grades"))
@@ -132,7 +136,8 @@ def main(argv: list[str] | None = None) -> None:
 
     timed, online, from_banner = [], [], False
     if S.banner.get("url"):
-        sections = banner.enrolled_sections(courses, pattern, S.banner.get("term_suffix", {}))
+        sections = banner.enrolled_sections(courses, section_pattern or re.compile(DEFAULT_SECTION_PATTERN),
+                                            S.banner.get("term_suffix", {}))
         if sections:
             try:
                 timed, online = banner.classes(sections, S.banner["url"], banner.opener())

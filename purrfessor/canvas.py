@@ -203,14 +203,20 @@ def announcement_tasks(anns: list[dict], canvas_tasks: list[Task], now: datetime
 
 # ---------------------------------------------------------------- submissions: grades, scores, unscheduled work
 
-def submissions(get: Get, courses: list[dict], section_pattern: re.Pattern) -> Fetched:
+def submissions(get: Get, courses: list[dict], section_pattern: re.Pattern | None = None) -> Fetched:
     """The student's submission records (with the assignment info) of every real course: one request per course.
     Grades, scores, lock times and work without a due date all read this, so nothing is fetched twice.
-    每门课取一次提交记录（带作业信息），成绩、分数、锁定时间、没有截止日期的作业都从这里读。"""
+    A school preset can tell real courses from other sites by their course code (`section_pattern`); without one
+    (any other school) every course I am a student in counts. Nothing here assumes a school's code format.
+    每门课取一次提交记录（带作业信息），成绩、分数、锁定时间、没有截止日期的作业都从这里读。
+    学校预设可以用课号格式区分真正的课程；没有时（别的学校）就取所有我是学生的课程。"""
     out = []
     for c in courses:
-        if not section_pattern.match(c.get("course_code", "")):
-            continue                               # skip orientation / non-course sites
+        if section_pattern is not None:
+            if not section_pattern.match(c.get("course_code", "")):
+                continue                           # skip orientation / non-course sites
+        elif not any(e.get("type") == "student" for e in c.get("enrollments") or []):
+            continue                               # a site where I am a teacher, an observer or nothing
         out.append((c, get(f"courses/{c['id']}/students/submissions",
                            {"student_ids[]": "self", "include[]": "assignment", "per_page": 100})))
     return out
