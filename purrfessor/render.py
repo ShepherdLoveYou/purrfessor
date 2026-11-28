@@ -355,7 +355,8 @@ def below_100(pct: float) -> float:
 
 def grades_card(grades: list[dict], colors: dict, t: T) -> str:
     """One row per course: course and missing / late flags on top, then the grade Canvas shows and the rate on graded
-    work (one decimal each), with a thin bar for that rate and the points under it. On a phone a row is about 105 px."""
+    work (one decimal each), with a thin bar for that rate and the points under it. On a phone a row is about 107 px, at any width from 320 up:
+    the labels are short and never wrap, so the value always sits beside its label."""
     if not grades:
         return ""
     rows = []
@@ -377,12 +378,13 @@ def grades_card(grades: list[dict], colors: dict, t: T) -> str:
                  + (f'<span class="badge bg-orange-lt">{t("late_n", n=g["late"])}</span>' if g["late"] else "")
                  or f'<span class="badge bg-green-lt">{t("no_missing")}</span>')
         rows.append(f'<div class="list-group-item grade-row"><div class="row g-2 align-items-center">'
-                    f'<div class="col-6 col-sm-3">{course_badge(g["course"], colors)}</div>'
-                    f'<div class="col-6 col-sm-2 text-end order-sm-1">{flags}</div>'
-                    f'<div class="col-6 col-sm-3 d-flex flex-wrap align-items-baseline column-gap-2">'
-                    f'<span class="text-secondary small">{t("grade_total")}</span>{cur}</div>'
-                    f'<div class="col-6 col-sm-4 d-flex flex-wrap align-items-baseline column-gap-2">'
-                    f'<span class="text-secondary small">{t("grade_rate")}</span>{rate}</div>'
+                    f'<div class="col-auto col-sm-3">{course_badge(g["course"], colors)}</div>'
+                    f'<div class="col text-end col-sm-2 order-sm-1">{flags}</div>'
+                    f'<div class="w-100 d-sm-none mt-0"></div>'                  # a phone: the grade and the rate start the second line
+                    f'<div class="col-6 col-sm-3 d-flex align-items-baseline column-gap-2">'
+                    f'<span class="text-secondary small text-nowrap">{t("grade_total")}</span>{cur}</div>'
+                    f'<div class="col-6 col-sm-4 d-flex align-items-baseline column-gap-2">'
+                    f'<span class="text-secondary small text-nowrap">{t("grade_rate")}</span>{rate}</div>'
                     f'{bar}</div></div>')
     return (f'<div class="col-12"><section id="grades" class="card" aria-labelledby="grades-title"><div class="card-header"><h2 class="card-title" id="grades-title">'
             f'<i class="ti ti-chart-bar me-1"></i>{t("grades")}</h2><div class="card-actions card-note text-secondary small">'
