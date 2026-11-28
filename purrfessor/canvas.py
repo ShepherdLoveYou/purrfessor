@@ -164,6 +164,46 @@ def deadline_mentions(text: str, now: datetime, tz) -> list[dict]:
     return found
 
 
+PREVIEW_CHARS = 600       # the page shows about this much of an announcement (3 lines, the rest opens on a tap)
+GREETING = re.compile(
+    r"^\s*(?:hi|hello|hey|dear|greetings|good\s+(?:morning|afternoon|evening))(?:\s+[\w'’&.-]+){0,3}\s*(?:[,!:]\s*|\.?\s*$)"
+    r"(?:(?:everyone|everybody|all|class|students|folks|team)\s*(?:[,!:]\s*|\.?\s*$))?", re.I)
+
+
+def squash(s: str) -> str:
+    return re.sub(r"[\W_]+", "", s.casefold())
+
+
+def repeats_title(line: str, title: str) -> bool:
+    """The line is the title, or a piece of it ("Week 9" under "WRIT 001L | Week 9: Reading"), or the title and a few more
+    characters."""
+    a, b = squash(line), squash(title)
+    return bool(a) and ((len(a) >= 4 and a in b) or (bool(b) and b in a and len(a) - len(b) <= 6))
+
+
+def preview(title: str, text: str, limit: int = PREVIEW_CHARS) -> str:
+    """The start of an announcement for the page: without the greeting ("Hi everyone,", or the "Hi all," in front of a
+    sentence) and without a first line that only repeats the title, at most `limit` characters, cut at a word.
+    公告的开头：去掉问候语和重复标题的第一行，最多 limit 个字符，在单词处截断。"""
+    lines = [x.strip() for x in text.split("\n") if x.strip()]
+    greeted = False
+    while lines:
+        greeting = None if greeted else GREETING.match(lines[0])
+        if repeats_title(lines[0], title):
+            lines.pop(0)
+        elif greeting:
+            greeted, rest = True, lines[0][greeting.end():].strip()
+            lines[0:1] = [rest[:1].upper() + rest[1:]] if rest else []
+        else:
+            break
+    body = "\n".join(lines)
+    if len(body) <= limit:
+        return body
+    cut = body[:limit]
+    space = re.search(r"\s\S*$", cut)
+    return (cut[:space.start()] if space and space.start() > limit * 0.6 else cut).rstrip() + "…"
+
+
 def announcements(get: Get, now: datetime, names: dict, courses: list[dict], tz) -> list[dict]:
     anns = get("announcements", {
         "context_codes[]": [f"course_{c['id']}" for c in courses],
@@ -179,7 +219,7 @@ def announcements(get: Get, now: datetime, names: dict, courses: list[dict], tz)
         out.append({"id": a["id"], "title": a.get("title", ""), "url": a.get("html_url", ""),
                     "course": names.get(cid) or course_label(code.get(cid, "")),
                     "when": parse_iso(a.get("posted_at"), tz), "unread": a.get("read_state") == "unread",
-                    "preview": text[:220] + ("…" if len(text) > 220 else ""), "text": text,
+                    "preview": preview(a.get("title", ""), text), "text": text,
                     "mentions": deadline_mentions(text, now, tz)})
     return sorted(out, key=lambda a: a["when"], reverse=True)
 

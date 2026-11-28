@@ -384,7 +384,8 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
     soon = [x for x in pending if x.due.date() <= horizon]
     later = [x for x in pending if x.due.date() > horizon]
     cancelled = {a["course"]: a["url"] for a in announcements
-                 if a["when"] and a["when"].date() == today and re.search(r"cancel", a["title"] + a["preview"], re.I)}
+                 if a["when"] and a["when"].date() == today
+                 and re.search(r"cancel", a["title"] + a.get("text", a["preview"])[:220], re.I)}
     today_cls = [{**c, "warn_url": cancelled.get(c["course"], "")} for c in classes_on(today, classes, holidays, tz)]
 
     logo = urllib.parse.quote(LOGO.read_text(encoding="utf-8")) if LOGO.exists() else ""

@@ -65,7 +65,7 @@ def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False,
     cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
-           f'var p = document.createElement("pre"); p.id = "probe-result"; p.textContent = r; document.body.appendChild(p); }}, 3500);')
+           f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r; document.body.appendChild(out); }}, 3500);')
     doc = page.html if hasattr(page, "html") else page
     doc = doc if cdn else hermetic(doc)
     doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), (BLOCK_STORAGE if blocked_storage else "") + init), 1)
