@@ -331,22 +331,36 @@ def changes_card(changes: dict, colors: dict, t: T) -> str:
 
 
 def grades_card(grades: list[dict], colors: dict, t: T) -> str:
+    """One row per course: course and missing / late flags on top, then the grade Canvas shows and the rate on graded
+    work (one decimal each), with a thin bar for that rate and the points under it. On a phone a row is about 105 px."""
     if not grades:
         return ""
     rows = []
     for g in grades:
         cur = (f'<span class="h3 mb-0">{g["current"]:.1f}%</span>' if g["current"] is not None
                else f'<span class="text-secondary">{t("grade_hidden")}</span>')
-        rate = (t("grade_rate_val", rate=f'{g["rate"]:.0f}', earned=f'{g["earned"]:g}', possible=f'{g["possible"]:g}',
-                  n=g["graded"]) if g["rate"] is not None else t("grade_none"))
+        rate, bar = f'<span class="text-secondary">{t("grade_none")}</span>', ""
+        if g["rate"] is not None:
+            pct = min(g["rate"], 99.9) if g["earned"] < g["possible"] else g["rate"]     # 1459.25/1460 is not "100%"
+            points = {"earned": f"{g['earned']:g}", "possible": f"{g['possible']:g}", "n": g["graded"]}
+            label = t("grade_rate_val", rate=f"{pct:.1f}", **points)
+            detail = t("grade_rate_detail", **points)
+            rate = f'<span class="h3 mb-0">{pct:.1f}%</span>'
+            bar = (f'<div class="col-12 order-sm-2"><div class="progress progress-sm" role="progressbar" aria-label="{esc(label)}" '
+                   f'aria-valuenow="{pct:.1f}" aria-valuemin="0" aria-valuemax="100">'
+                   f'<div class="progress-bar" style="width:{pct:.1f}%"></div></div>'
+                   f'<div class="text-secondary small mt-1">{esc(detail)}</div></div>')
         flags = ((f'<span class="badge bg-red-lt">{t("missing_n", n=g["missing"])}</span> ' if g["missing"] else "")
                  + (f'<span class="badge bg-orange-lt">{t("late_n", n=g["late"])}</span>' if g["late"] else "")
                  or f'<span class="badge bg-green-lt">{t("no_missing")}</span>')
-        rows.append(f'<div class="list-group-item"><div class="row g-3 align-items-center">'
-                    f'<div class="col-12 col-sm-3">{course_badge(g["course"], colors)}</div>'
-                    f'<div class="col-6 col-sm-3"><div class="text-secondary small">{t("grade_total")}</div>{cur}</div>'
-                    f'<div class="col-6 col-sm-4"><div class="text-secondary small">{t("grade_rate")}</div>{esc(rate)}</div>'
-                    f'<div class="col-12 col-sm-2 text-sm-end">{flags}</div></div></div>')
+        rows.append(f'<div class="list-group-item grade-row"><div class="row g-2 align-items-center">'
+                    f'<div class="col-6 col-sm-3">{course_badge(g["course"], colors)}</div>'
+                    f'<div class="col-6 col-sm-2 text-end order-sm-1">{flags}</div>'
+                    f'<div class="col-6 col-sm-3 d-flex flex-wrap align-items-baseline column-gap-2">'
+                    f'<span class="text-secondary small">{t("grade_total")}</span>{cur}</div>'
+                    f'<div class="col-6 col-sm-4 d-flex flex-wrap align-items-baseline column-gap-2">'
+                    f'<span class="text-secondary small">{t("grade_rate")}</span>{rate}</div>'
+                    f'{bar}</div></div>')
     return (f'<div class="col-12"><section id="grades" class="card"><div class="card-header"><h3 class="card-title">'
             f'<i class="ti ti-chart-bar me-1"></i>{t("grades")}</h3><div class="card-actions card-note text-secondary small">'
             f'{t("grades_aside")}</div></div><div class="list-group list-group-flush">{"".join(rows)}</div></section></div>')
