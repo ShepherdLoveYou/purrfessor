@@ -24,6 +24,30 @@
 {{FC_LOCALE_SCRIPT}}
 <style>
   /* Only what Tabler doesn't cover */
+  /* Small coloured text. Tabler writes it in the plain palette colour on a pale wash of the same colour (2-4:1 for
+     green, teal, orange, yellow…; in dark mode purple, blue, pink, red). Mixing the colour toward black (white in dark
+     mode) keeps its hue and reaches 4.5:1. tests/test_contrast.py checks every colour against these two numbers. */
+  :root { --tone-ink: #000; --tone-mix: 60%; --tick-line: var(--tblr-secondary); --ring: var(--tblr-primary); }
+  :root[data-bs-theme="dark"] { --tone-ink: #fff; --tone-mix: 60%; --ring: color-mix(in srgb, var(--tblr-primary) 55%, #fff); }
+  .badge.bg-red-lt, .text-danger { --tone: var(--tblr-red); }
+  .badge.bg-orange-lt { --tone: var(--tblr-orange); }
+  .badge.bg-yellow-lt { --tone: var(--tblr-yellow); }
+  .badge.bg-lime-lt { --tone: var(--tblr-lime); }
+  .badge.bg-green-lt, .text-success { --tone: var(--tblr-green); }
+  .badge.bg-teal-lt { --tone: var(--tblr-teal); }
+  .badge.bg-cyan-lt { --tone: var(--tblr-cyan); }
+  .badge.bg-azure-lt { --tone: var(--tblr-azure); }
+  .badge.bg-blue-lt, .text-primary { --tone: var(--tblr-blue); }
+  .badge.bg-indigo-lt { --tone: var(--tblr-indigo); }
+  .badge.bg-purple-lt { --tone: var(--tblr-purple); }
+  .badge.bg-pink-lt { --tone: var(--tblr-pink); }
+  .badge.bg-secondary-lt { --tone: var(--tblr-secondary); }
+  .badge[class*="-lt"], .text-danger, .text-success, .text-primary {
+    color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)) !important; }
+  .badge { font-size: .75rem; }
+  .alert-warning { --tblr-alert-color: color-mix(in srgb, var(--tblr-warning) var(--tone-mix), var(--tone-ink)); }
+  .list-group-header { color: var(--tblr-secondary-color); }
+  .nav-sticky .nav-link { color: var(--tblr-secondary-color); }
   .min-w-0 { min-width: 0; }
   .time-col { min-width: 3.5rem; }
   .nav-sticky { position: sticky; top: 0; z-index: 1020; margin: 1rem -.75rem 0; padding: .5rem .75rem;
@@ -35,13 +59,16 @@
   .next .card-status-start { background: var(--c, var(--tblr-border-color)); }
   .next .next-big { color: var(--c, inherit); font-variant-numeric: tabular-nums; }
   .cd { font-variant-numeric: tabular-nums; min-width: 5.5rem; }
-  .task.done .title, .task.checked .title { text-decoration: line-through; opacity: .5; }
-  .task.checked .cd { opacity: .35; }
+  /* Finished items are faded with a colour, not opacity: their text stays above 4.5:1 (done titles) / 3:1 (the rest) */
+  .task.done .title, .task.checked .title { text-decoration: line-through; color: var(--tblr-secondary-color); }
+  .task.checked .cd { opacity: .7; }
   .task.checked .lock-note { display: none; }
-  .cls.past { opacity: .45; }
+  .cls.past { opacity: .78; }
   /* Big enough for a thumb: the label around the box is the tap target (the padding is cancelled by the margin) */
   .tick-hit { display: flex; margin: -.5rem; padding: .5rem; cursor: pointer; }
-  .tick { width: 1.5rem; height: 1.5rem; }
+  .tick { width: 1.5rem; height: 1.5rem; border: 2px solid var(--tick-line); }   /* the box is the only control: 3:1 against the card */
+  .tick:checked { border-color: var(--tick-line); }
+  .tick:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
   .preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     cursor: pointer; white-space: pre-line; }
   .preview.open { display: block; }
