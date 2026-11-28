@@ -89,6 +89,24 @@ def test_quiz_lock_falls_back_through_the_assignment_id(build):
     assert "lock-note" in row(build(DUE - timedelta(days=1), canvas), "canvas-quiz-153927")
 
 
+def test_work_that_cannot_be_submitted_has_no_window(build):
+    """A reading or other item with no submissions on Canvas is ticked off by hand: nobody "submits" it, so a lock_at
+    (from the planner, or from the assignment behind it) must not produce "Can still be submitted until"."""
+    now = DUE - timedelta(days=1)
+    reading = item(9, 1001, "Read chapter 3", DUE, kind="wiki_page", submittable=False, lock=DUE + timedelta(days=5))
+    linked = item(8, 1001, "Read the paper", DUE, kind="discussion_topic", submittable=False, aid=77)
+    canvas = FakeCanvas(planner=[reading, linked, item(1, 1001, "Lab 5", DUE, lock=LOCK)],
+                        submissions={1001: [submission_row(77, "Read the paper", 5, due=DUE, lock=LOCK)]})
+    page = build(now, canvas)
+    for tid in ("canvas-wiki_page-9", "canvas-discussion_topic-8"):
+        block = row(page, tid)
+        assert "lock-note" not in block and "data-lock" not in block and "还能交" not in block, tid
+        assert "tick" in block                                                     # still a to-do with a tick box
+    assert "lock-note" in row(page, "canvas-assignment-1")                          # real work keeps its note
+    late = build(DUE + timedelta(hours=2), canvas)           # past due, the readings are gone; real work is still open
+    assert "canvas-wiki_page-9" not in late.states and "还能交" in row(late, "canvas-assignment-1")
+
+
 def test_degrades_silently_when_data_is_missing(build):
     """No lock anywhere, no submissions data, a record without its assignment, an unparsable value: just no note."""
     odd = submission_row(3, "Odd", 10, due=DUE)

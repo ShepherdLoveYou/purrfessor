@@ -28,6 +28,7 @@ class Task:
     score: float | None = None  # points earned, when graded and Canvas shows them
     feedback: bool = False    # the grader left comments (only the fact: the text is private and never kept)
     lock_at: datetime | None = None   # Canvas closes submissions then (None: never, or unknown)
+    submittable: bool = False         # Canvas takes work for it (the planner item came with a submissions record)
 
     @property
     def manual(self) -> bool:

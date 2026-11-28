@@ -77,7 +77,8 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             continue
         if not isinstance(it.get("submissions"), dict) and when < now:
             continue      # nothing to submit on Canvas (paper work, readings): drop once it's past
-        subs = it["submissions"] if isinstance(it.get("submissions"), dict) else {}
+        submittable = isinstance(it.get("submissions"), dict)       # else a reading or other item nobody hands in
+        subs = it["submissions"] if submittable else {}
         override = it.get("planner_override") or {}
         # a grade the teacher has not posted yet is not visible to the student: not "graded" either
         graded = bool(subs.get("graded") and not subs.get("excused") and subs.get("posted_at", True))
@@ -87,7 +88,7 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             url=urllib.parse.urljoin(base_url, it.get("html_url") or ""), source="Canvas", kind=kind,
             points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p), graded=graded,
             feedback=bool(subs.get("has_feedback")),
-            lock_at=parse_iso(p.get("lock_at"), tz),
+            submittable=submittable, lock_at=parse_iso(p.get("lock_at"), tz) if submittable else None,
             # graded without a submission (in-class work, grades the teacher typed in) is finished too, unless Canvas
             # also flags it missing
             done=bool(subs.get("submitted") or subs.get("excused") or override.get("marked_complete")
@@ -106,8 +107,8 @@ def details(get: Get, task: Task) -> str:
 
 def attach_submissions(tasks: list[Task], fetched: Fetched, tz, scores: bool = True) -> None:
     """Add what only the students/submissions data has: the points earned on graded work, and the lock time of items whose
-    planner entry has none (work with an override due date). It is the data grades() already fetched (matched by
-    assignment id), so no request per item. Items without a match stay as they are."""
+    planner entry has none (work with an override due date; items nobody can hand in get no lock). It is the data
+    grades() already fetched (matched by assignment id), so no request per item. Items without a match stay as they are."""
     by_aid = {}
     for _, subs in fetched:
         for s in subs:
@@ -120,7 +121,7 @@ def attach_submissions(tasks: list[Task], fetched: Fetched, tz, scores: bool = T
             continue
         if scores and task.graded and isinstance(s.get("score"), (int, float)):
             task.score = float(s["score"])
-        if task.lock_at is None:
+        if task.lock_at is None and task.submittable:
             task.lock_at = parse_iso((s.get("assignment") or {}).get("lock_at"), tz)
 
 
