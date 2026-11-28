@@ -103,8 +103,10 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
     meta = course_badge(task.course, colors) + f'<span>{" · ".join(text)}</span>'     # no text node starts with a "·"
     if task.feedback:      # the comment itself stays on Canvas: the badge only links to where it is
         meta += link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt")
+    # the weekly homework is the same title every week: the name a screen reader says carries the course and the due date too
+    name = t("tick_title", title=task.display_title, course=task.course, when=t.when(task.due))
     lead = (f'<label class="tick-hit"><input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '
-            f'aria-label="{esc(t("tick_title", title=task.display_title))}"></label>' if task.manual or not task.done
+            f'aria-label="{esc(name)}"></label>' if task.manual or not task.done
             else f'<span class="status-dot status-{"green" if task.done else color} d-block" aria-hidden="true"></span>')
     original = (f'<div class="text-secondary small original">{esc(task.title)}</div>'
                 if task.translated and same_words(task.translated) != same_words(task.title) else "")

@@ -22,14 +22,22 @@ def canvas():
                       submissions={1001: [{"score": 9, "missing": False, "late": False, "assignment": {"points_possible": 10}}]})
 
 
-@pytest.mark.parametrize("lang,prefix", [("zh", "标记为已完成："), ("en", "Mark as done: ")])
-def test_every_tick_box_names_its_task(build, lang, prefix):
-    page = build(NOW, canvas(), lang=lang, config=PLAIN)          # (the weekly homework would be three boxes with one title)
+@pytest.mark.parametrize("lang,prefix,end", [("zh", "标记为已完成：", "截止"), ("en", "Mark as done: ", "")])
+def test_every_tick_box_names_its_task(build, lang, prefix, end):
+    """The name carries the title, the course and the due date: the weekly homework is one title every week, and two
+    courses can each have a "Quiz 2" due at the same minute. Run on the default config, which has the weekly homework."""
+    cv = canvas()
+    cv.planner.append(item(3, 1002, "Quiz 2", pt("2026-10-11 23:59")))      # the same title and time as assignment 2, another course
+    page = build(NOW, cv, lang=lang)
     labels = re.findall(r'<input class="form-check-input m-0 tick" type="checkbox" data-key="([^"]+)" aria-label="([^"]*)">', page.html)
-    assert len(labels) >= 2 and len({label for _, label in labels}) == len(labels)      # no two boxes read the same
+    assert len(labels) >= 6 and len({label for _, label in labels}) == len(labels)      # no two boxes read the same
     by_key = dict(labels)
-    assert by_key["canvas-assignment-1"] == f"{prefix}Essay &quot;A&quot; &amp; &lt;B&gt;"       # escaped, and the title is in it
-    assert by_key["canvas-assignment-2"] == f"{prefix}Quiz 2"
+    homework = [label for key, label in labels if key.startswith("HW-DEMO")]
+    assert len(homework) == 3 and all("Online homework" in label for label in homework)   # three weeks, one title, three names
+    essay, quiz_a, quiz_b = (by_key[f"canvas-assignment-{n}"] for n in (1, 2, 3))
+    assert essay.startswith(f"{prefix}Essay &quot;A&quot; &amp; &lt;B&gt;")                  # escaped, and the title is in it
+    assert "TEST 101" in essay and "TEST 101" in quiz_a and "DEMO 002A" in quiz_b and quiz_a != quiz_b
+    assert ("10/10 周六 23:59" if lang == "zh" else "Sat 10/10 23:59") in essay and essay.endswith(end)
     if lang == "en":
         assert not CJK.search(" ".join(by_key.values()))
 
