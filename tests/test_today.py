@@ -304,6 +304,24 @@ def test_frontend_script_runs(build, tmp_path, lang, loading):
     assert 'class="fc' in dom                          # FullCalendar rendered
 
 
+@pytest.mark.skipif(CHROME is None, reason="no Chrome")
+def test_frontend_late_window_follows_the_clock(build, tmp_path):
+    """Built while the late window was open, opened after it closed: the script turns the badge back to "past due"
+    and hides the note; a window that is still open keeps its orange badge."""
+    due = pt("2026-10-05 23:59")
+    canvas = FakeCanvas(planner=[item(21, 1001, "Closed by now", due, lock=pt("2026-10-07 23:59")),
+                                 item(22, 1001, "Open for years", due, lock=pt("2099-01-01 23:59"))])
+    page = build(pt("2026-10-06 12:00"), canvas)
+    assert page.html.count("还能交 ·") >= 2                          # as built: both still open
+    dom = render_dom(page.html, tmp_path)
+
+    def row(n):
+        return re.search(rf'<div class="list-group-item task[^"]*"[^>]*data-id="canvas-assignment-{n}".*?</div></div></div>',
+                         dom, re.S).group(0)
+    assert "已截止" in row(21) and "还能交 ·" not in row(21) and 'class="text-secondary small mt-1 lock-note" hidden' in row(21)
+    assert "还能交 ·" in row(22) and "bg-orange-lt" in row(22) and "hidden" not in row(22)
+
+
 def test_every_unfinished_task_can_be_ticked(build):
     """Canvas sync can lag or fail, so any task not yet submitted gets a manual box; a submitted one does not."""
     due = pt("2026-10-09 23:59")

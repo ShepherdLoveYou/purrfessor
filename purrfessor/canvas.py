@@ -87,6 +87,7 @@ def tasks(get: Get, now: datetime, names: dict, tz, base_url: str) -> list[Task]
             url=urllib.parse.urljoin(base_url, it.get("html_url") or ""), source="Canvas", kind=kind,
             points=p.get("points_possible"), aid=assignment_id(kind, it.get("plannable_id"), p), graded=graded,
             feedback=bool(subs.get("has_feedback")),
+            lock_at=parse_iso(p.get("lock_at"), tz),
             # graded without a submission (in-class work, grades the teacher typed in) is finished too, unless Canvas
             # also flags it missing
             done=bool(subs.get("submitted") or subs.get("excused") or override.get("marked_complete")
@@ -103,9 +104,10 @@ def details(get: Get, task: Task) -> str:
     return strip_html(data.get("description") or data.get("message") or "") if isinstance(data, dict) else ""
 
 
-def attach_submissions(tasks: list[Task], fetched: Fetched, scores: bool = True) -> None:
-    """Add what only the students/submissions data has: the points earned on graded work. It is the data grades() already
-    fetched (matched by assignment id), so no request per item. Items without a match stay as they are."""
+def attach_submissions(tasks: list[Task], fetched: Fetched, tz, scores: bool = True) -> None:
+    """Add what only the students/submissions data has: the points earned on graded work, and the lock time of items whose
+    planner entry has none (work with an override due date). It is the data grades() already fetched (matched by
+    assignment id), so no request per item. Items without a match stay as they are."""
     by_aid = {}
     for _, subs in fetched:
         for s in subs:
@@ -114,8 +116,12 @@ def attach_submissions(tasks: list[Task], fetched: Fetched, scores: bool = True)
                 by_aid[aid] = s
     for task in tasks:
         s = by_aid.get(task.aid)
-        if s is not None and scores and task.graded and isinstance(s.get("score"), (int, float)):
+        if s is None:
+            continue
+        if scores and task.graded and isinstance(s.get("score"), (int, float)):
             task.score = float(s["score"])
+        if task.lock_at is None:
+            task.lock_at = parse_iso((s.get("assignment") or {}).get("lock_at"), tz)
 
 
 # ---------------------------------------------------------------- announcements

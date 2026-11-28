@@ -100,14 +100,22 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
     original = (f'<div class="text-secondary small original">{esc(task.title)}</div>'
                 if task.translated and same_words(task.translated) != same_words(task.title) else "")
     note = f'<div class="text-secondary small mt-1">{esc(task.note)}</div>' if task.note else ""
-    badge = (f'<span class="badge bg-green-lt cd-done"><i class="ti ti-check"></i> {t("submitted")}</span>' if task.done
-             else f'<span class="badge {URGENCY_BADGE[urgency(task.due - now)]} cd">{esc(t.countdown(task.due - now))}</span>')
+    window = task.late_window(now)           # past the due time but Canvas still takes the work
+    if task.done:
+        badge = f'<span class="badge bg-green-lt cd-done"><i class="ti ti-check"></i> {t("submitted")}</span>'
+    elif window and task.due <= now:
+        badge = f'<span class="badge bg-orange-lt cd">{esc(t("late_open", t=t.countdown(window - now)))}</span>'
+    else:
+        badge = f'<span class="badge {URGENCY_BADGE[urgency(task.due - now)]} cd">{esc(t.countdown(task.due - now))}</span>'
+    lock = f' data-lock="{window.isoformat()}"' if window else ""
+    lock_note = (f'<div class="text-secondary small mt-1 lock-note"><i class="ti ti-lock-open"></i> '
+                 f'{esc(t("late_until", when=t.when(window)))}</div>' if window else "")
     return (f'<div class="list-group-item task{" done" if task.done else ""}" data-due="{task.due.isoformat()}" '
-            f'data-id="{esc(task.id)}" data-state="{state}">'
+            f'data-id="{esc(task.id)}" data-state="{state}"{lock}>'
             f'<div class="row align-items-center g-3"><div class="col-auto">{lead}</div>'
             f'<div class="col min-w-0"><div class="fw-medium title">{link(task.display_title, task.url)}</div>{original}'
             f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">{" · ".join(meta)}</div>'
-            f'{note}</div><div class="col-auto">{badge}</div></div></div>')
+            f'{note}{lock_note}</div><div class="col-auto">{badge}</div></div></div>')
 
 
 UNDATED_SHOWN, UNDATED_PER_COURSE = 8, 3      # at most 8 rows, and no course (31 placeholders…) fills them alone
@@ -462,7 +470,8 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
         upcoming += classes_on(today + timedelta(days=i), classes, holidays, tz)
     data = {
         "tz": str(tz), "lang": t.lang, "fcLocale": t("fc_locale"), "i18n": {**JS[t.lang], "fcDue": t("fc_due"),
-                                                                            "snapNote": t("snapshot_note", date="{date}")},
+                                                                            "snapNote": t("snapshot_note", date="{date}"),
+                                                                            "lateOpen": t("late_open", t="{t}")},
         "classes": [{"course": c["course"], "kind": label(c, t), "where": c.get("where", ""),
                      "start": c["start_dt"].isoformat(), "end": c["end_dt"].isoformat(),
                      "color": HEX[colors.get(c["course"], "secondary")]} for c in upcoming],

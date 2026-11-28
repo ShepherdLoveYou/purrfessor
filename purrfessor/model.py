@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
+
+
+LATE_MIN = timedelta(hours=1)    # a lock this close to the due time is the same deadline, not a late window
 
 
 @dataclass
@@ -24,6 +27,7 @@ class Task:
     graded: bool = False      # graded and the grade is posted (excused work is not "graded")
     score: float | None = None  # points earned, when graded and Canvas shows them
     feedback: bool = False    # the grader left comments (only the fact: the text is private and never kept)
+    lock_at: datetime | None = None   # Canvas closes submissions then (None: never, or unknown)
 
     @property
     def manual(self) -> bool:
@@ -33,6 +37,13 @@ class Task:
     @property
     def display_title(self) -> str:
         return self.translated or self.title
+
+    def late_window(self, now: datetime) -> datetime | None:
+        """Until when unfinished work can still be handed in after its due time: lock_at, if it is more than an hour
+        after the due time (a quiz that locks when it is due has no window) and has not passed. Else None."""
+        if self.done or self.lock_at is None or self.lock_at <= now or self.lock_at - self.due <= LATE_MIN:
+            return None
+        return self.lock_at
 
 
 def as_date(v) -> date:

@@ -37,6 +37,7 @@
   .cd { font-variant-numeric: tabular-nums; min-width: 5.5rem; }
   .task.done .title, .task.checked .title { text-decoration: line-through; opacity: .5; }
   .task.checked .cd { opacity: .35; }
+  .task.checked .lock-note { display: none; }
   .cls.past { opacity: .45; }
   /* Big enough for a thumb: the label around the box is the tap target (the padding is cancelled by the margin) */
   .tick-hit { display: flex; margin: -.5rem; padding: .5rem; cursor: pointer; }
@@ -177,8 +178,13 @@
     renderMeme(now);
     renderStats(now);
     document.querySelectorAll(".task[data-due]:not(.done)").forEach(function (li) {
-      var ms = new Date(li.dataset.due) - now, b = li.querySelector(".cd");
-      if (b) { b.textContent = ms < 0 ? L.pastDue : fmt(ms); setBadge(b, badgeFor(ms)); }
+      var ms = new Date(li.dataset.due) - now, b = li.querySelector(".cd"), note = li.querySelector(".lock-note"),
+          open = li.dataset.lock ? new Date(li.dataset.lock) - now : -1;   // time left to hand it in late
+      if (b) {
+        if (ms < 0 && open > 0) { b.textContent = fill(L.lateOpen, { t: fmt(open) }); setBadge(b, "bg-orange-lt"); }
+        else { b.textContent = ms < 0 ? L.pastDue : fmt(ms); setBadge(b, badgeFor(ms)); }
+      }
+      if (note) note.hidden = open <= 0;
     });
     document.querySelectorAll(".cls[data-start]").forEach(function (li) {
       var a = new Date(li.dataset.start) - now, e = new Date(li.dataset.end) - now, b = li.querySelector(".cd"),
