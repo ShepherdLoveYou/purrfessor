@@ -91,7 +91,7 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
                                                    else t.kind(task.kind))]
     if task.points:
         meta.append(t("pts", p=f"{task.points:g}"))
-    meta.append(t.when(task.due, now.date()))
+    meta.append(t.when(task.due) if state == "overdue" else t.when(task.due, now.date()))   # overdue: the date, not "Monday"
     if task.feedback:      # the comment itself stays on Canvas: the badge only links to where it is
         meta.append(link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt"))
     lead = (f'<label class="tick-hit"><input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '

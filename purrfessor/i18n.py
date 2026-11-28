@@ -155,13 +155,15 @@ RELATIVE = {"en": {-1: "Yesterday", 0: "Today", 1: "Tomorrow"},
 JS = {
     "en": {"d": "d ", "h": "h ", "m": "m ", "s": "s", "startsIn": "starts in {t}", "inClass": "In class · {t} left",
            "noMore": "No more classes this week", "left": "{t} left", "nothingDue": "Nothing due soon 🎉",
-           "due": "due", "pastDue": "Past due", "in": "in {t}", "live": "In class", "ended": "Ended",
+           "due": "due", "overdueBy": "overdue {t}", "unitD": ["day", "days"], "unitH": ["hour", "hours"],
+           "unitM": ["min", "min"], "in": "in {t}", "live": "In class", "ended": "Ended",
            "rel": ["Today", "Tomorrow"], "greet": ["Up late — get some rest", "Good morning", "Good afternoon",
                                                     "Good afternoon", "Good evening"],
            "elapsed": "{w} weeks {d} days into {year}"},
     "zh": {"d": "天", "h": "小时", "m": "分", "s": "秒", "startsIn": "{t} 后开始", "inClass": "上课中 · 还剩 {t}",
            "noMore": "这周没有更多课了", "left": "还剩 {t}", "nothingDue": "近期没有要交的 🎉",
-           "due": "截止", "pastDue": "已截止", "in": "{t}后", "live": "上课中", "ended": "已结束",
+           "due": "截止", "overdueBy": "已逾期 {t}", "unitD": ["天", "天"], "unitH": ["小时", "小时"],
+           "unitM": ["分钟", "分钟"], "in": "{t}后", "live": "上课中", "ended": "已结束",
            "rel": ["今天", "明天", "后天"], "greet": ["夜深了，早点休息", "早上好", "中午好", "下午好", "晚上好"],
            "elapsed": "今年已过 {w} 周 {d} 天"},
 }
@@ -207,10 +209,16 @@ class T:
         head = self.rel_day(dt.date(), today) if today else self.md(dt)
         return f"{head} {dt:%H:%M}"
 
+    def overdue_by(self, delta: timedelta) -> str:
+        """'overdue 53 days' · '已逾期 53 天': how long ago, in one unit. The page script writes the same text live."""
+        s, j = int(abs(delta.total_seconds())), JS[self.lang]
+        n, unit = (s // 86400, "unitD") if s >= 86400 else (s // 3600, "unitH") if s >= 3600 else (max(s // 60, 1), "unitM")
+        return j["overdueBy"].format(t=f"{n} {j[unit][0 if n == 1 else 1]}")
+
     def countdown(self, delta: timedelta) -> str:
         s = int(delta.total_seconds())
         if s < 0:
-            return self("pastDue") if "pastDue" in self.s else JS[self.lang]["pastDue"]
+            return self.overdue_by(delta)
         j = JS[self.lang]
         d, h, m = s // 86400, s % 86400 // 3600, s % 3600 // 60
         text = f"{d}{j['d']}{h}{j['h']}" if d else f"{h}{j['h']}{m}{j['m']}" if h else f"{m}{j['m']}"

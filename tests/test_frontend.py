@@ -4,61 +4,12 @@ these tests need Chrome but no network: the script and the inline CSS are all th
 页面脚本的行为测试：用 Chrome 真正运行生成的页面，假时钟、脚本化的操作（时间流逝、点打勾框）、最后读回页面状态。不需要网络。"""
 from __future__ import annotations
 
-import html as htmllib
-import json
 import re
-import urllib.request
 from datetime import timedelta
 
 import pytest
-from conftest import CONFIG, FakeCanvas, item, pt
-from test_today import CHROME, render_dom
-
-needs_chrome = pytest.mark.skipif(CHROME is None, reason="no Chrome")
-
-
-def cdn_reachable() -> bool:
-    try:
-        urllib.request.urlopen("https://cdn.jsdelivr.net/npm/@tabler/core@1.6.1/dist/css/tabler.min.css", timeout=5).close()
-        return True
-    except OSError:
-        return False
-
-
-needs_cdn = pytest.mark.skipif(not cdn_reachable(), reason="no network: layout tests need Tabler's real CSS")
-PLAIN = CONFIG.split("[[recurring]]")[0]      # no weekly homework task to get in the way of "the next deadline"
-
-CLOCK = """<script>(function () {
-  var Real = Date, base = Real.now(), at = Date.parse("%s"), shift = 0;
-  function now() { return at + shift + (Real.now() - base); }
-  window.Date = class extends Real { constructor(...a) { if (a.length) super(...a); else super(now()); } static now() { return now(); } };
-  window.jump = function (ms) { shift += ms; };
-  %s
-})();</script>"""
-BLOCK_STORAGE = 'Object.defineProperty(window, "localStorage", { get: function () { throw new Error("blocked"); } });'
-
-
-def hermetic(page: str) -> str:
-    """The page without its CDN files (no FullCalendar, no Tabler CSS): the script copes with a missing calendar."""
-    return re.sub(r'<link rel="stylesheet" href="https://[^"]+">|<script src="https://[^"]+"></script>', "", page)
-
-
-def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False):
-    """Load page.html in Chrome with the clock at `now`; `steps` = [(virtual ms, js)] run in order (the js can call
-    jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
-    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS)."""
-    run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
-    out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
-           f'var p = document.createElement("pre"); p.id = "probe-result"; p.textContent = r; document.body.appendChild(p); }}, 3500);')
-    doc = page.html if hasattr(page, "html") else page
-    doc = doc if cdn else hermetic(doc)
-    doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), BLOCK_STORAGE if blocked_storage else ""), 1)
-    doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
-    dom = render_dom(doc, tmp_path, size)
-    found = re.search(r'<pre id="probe-result">(.*?)</pre>', dom, re.S)
-    assert found, "the probe never ran: " + dom[-600:]
-    return json.loads(htmllib.unescape(found.group(1)))
-
+from browser import PLAIN, needs_cdn, needs_chrome, run_page
+from conftest import FakeCanvas, item, pt
 
 NEXT = ("({big: document.querySelector('#next-due .next-big').className, text: document.querySelector('#next-due .next-big').textContent,"
         " bar: document.getElementById('next-due').style.getPropertyValue('--c'), title: document.querySelector('#next-due .next-title').textContent})")

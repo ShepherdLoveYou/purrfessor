@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import re
-import shutil
-import subprocess
 from datetime import datetime, timedelta
 
 import pytest
+from browser import CHROME, render_dom
 from conftest import FakeCanvas, announcement, item, pt
 
 
@@ -278,21 +277,6 @@ def test_no_token_and_no_config(build):
 
 # ---------------------------------------------------------------- front-end smoke test
 
-CHROME = next((p for p in ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                           shutil.which("google-chrome") or "", shutil.which("chromium") or ""]
-               if p and shutil.os.path.exists(p)), None)
-
-
-def render_dom(html: str, tmp_path, size: tuple[int, int] | None = None) -> str:
-    f = tmp_path / "p.html"
-    f.write_text(html, encoding="utf-8")
-    cmd = [CHROME, "--headless=new", "--disable-gpu", f"--user-data-dir={tmp_path / 'ud'}",
-           *([f"--window-size={size[0]},{size[1]}"] if size else []),
-           "--virtual-time-budget=4000", "--dump-dom", f.as_uri()]
-    try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=40).stdout
-    except subprocess.TimeoutExpired as e:   # a per-second timer can keep Chrome alive after it dumped the DOM
-        return (e.output or b"").decode() if isinstance(e.output, bytes) else (e.output or "")
 
 
 @pytest.mark.skipif(CHROME is None, reason="no Chrome")
@@ -319,7 +303,7 @@ def test_frontend_late_window_follows_the_clock(build, tmp_path):
     def row(n):
         return re.search(rf'<div class="list-group-item task[^"]*"[^>]*data-id="canvas-assignment-{n}".*?</div></div></div>',
                          dom, re.S).group(0)
-    assert "已截止" in row(21) and "还能交 ·" not in row(21) and 'class="text-secondary small mt-1 lock-note" hidden' in row(21)
+    assert "已逾期" in row(21) and "还能交 ·" not in row(21) and 'class="text-secondary small mt-1 lock-note" hidden' in row(21)
     assert "还能交 ·" in row(22) and "bg-orange-lt" in row(22) and "hidden" not in row(22)
 
 

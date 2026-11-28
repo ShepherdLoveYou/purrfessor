@@ -33,14 +33,14 @@ def test_overdue_but_still_open_is_not_shown_as_dead(build):
     assert page.state("canvas-assignment-1") == "overdue"                          # still late: counters unchanged
     assert page.stats["逾期未交"] == 1
     assert 'class="badge bg-orange-lt cd">还能交 · 1天4小时</span>' in block
-    assert "已截止" not in block and "11/22 周日 23:59" in block
+    assert "已逾期" not in block and "11/22 周日 23:59" in block
 
 
 def test_locked_for_good_is_plain_overdue(build):
     page = build(LOCK + timedelta(hours=1), FakeCanvas(planner=[item(1, 1001, "Lab 5", DUE, lock=LOCK)]))
     block = row(page, "canvas-assignment-1")
     assert "lock-note" not in block and "data-lock" not in block and "还能交" not in block
-    assert "已截止" in block and "bg-red-lt cd" in block
+    assert "已逾期 2 天" in block and "bg-red-lt cd" in block
 
 
 def test_no_note_when_the_lock_is_the_due_time(build):

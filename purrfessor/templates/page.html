@@ -157,6 +157,12 @@
     var out = d ? d + L.d + h + L.h : h ? h + L.h + m + L.m : m + L.m + pad(x) + L.s;
     return out.trim();
   }
+  // How long past due, in one unit: "53 days", "5 hours", "12 min" (a day count is what tells last night from last month)
+  function ago(ms) {
+    var s = Math.floor(Math.abs(ms) / 1000), d = Math.floor(s / 86400), h = Math.floor(s / 3600), m = Math.max(Math.floor(s / 60), 1);
+    var n = d || h || m, u = d ? L.unitD : h ? L.unitH : L.unitM;
+    return n + " " + u[n === 1 ? 0 : 1];
+  }
   function relDay(t) {
     var n = Math.round((Date.parse(YMD.format(new Date(t))) - Date.parse(YMD.format(new Date()))) / 864e5);
     return (L.rel && n >= 0 && n < L.rel.length) ? L.rel[n] : WDAY.format(new Date(t));
@@ -235,7 +241,7 @@
           open = li.dataset.lock ? new Date(li.dataset.lock) - now : -1;   // time left to hand it in late
       if (b) {
         if (ms < 0 && open > 0) { b.textContent = fill(L.lateOpen, { t: fmt(open) }); setBadge(b, "bg-orange-lt"); }
-        else { b.textContent = ms < 0 ? L.pastDue : fmt(ms); setBadge(b, badgeFor(ms)); }
+        else { b.textContent = ms < 0 ? fill(L.overdueBy, { t: ago(ms) }) : fmt(ms); setBadge(b, badgeFor(ms)); }
       }
       if (note) note.hidden = open <= 0;
     });
