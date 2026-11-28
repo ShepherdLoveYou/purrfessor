@@ -59,14 +59,17 @@ def diff(prev: dict | None, cur: dict) -> dict:
     p = {k: v for k, v in prev.get("tasks", {}).items() if v.get("source") == "Canvas"}
     c = {k: v for k, v in cur["tasks"].items() if v.get("source") == "Canvas"}
     now = cur["generated"]
+    graded = [dict(id=k, old_score=p[k].get("score"), **v) for k, v in c.items() if k in p and newly_graded(p[k], v)]
+    announced = {x["id"] for x in graded}
     out = {
         "since": prev.get("generated", ""),
         "new_tasks": [dict(id=k, **v) for k, v in c.items() if k not in p and not v["done"]],
-        "completed": [dict(id=k, **v) for k, v in c.items() if k in p and v["done"] and not p[k]["done"]],
+        # graded work without a hand-in turns "done" at the very moment it is graded: one notice (the grade), not two
+        "completed": [dict(id=k, **v) for k, v in c.items()
+                      if k in p and v["done"] and not p[k]["done"] and k not in announced],
         "due_changed": [dict(id=k, old_due=p[k]["due"], **v) for k, v in c.items()
                         if k in p and v["due"] != p[k]["due"]],
-        "graded": [dict(id=k, old_score=p[k].get("score"), **v) for k, v in c.items()
-                   if k in p and newly_graded(p[k], v)],
+        "graded": graded,
         # only items that vanished before their due time (withdrawn by the instructor), not ones that simply expired
         "removed": [dict(id=k, **v) for k, v in p.items()
                     if k not in c and not v["done"] and v["due"] > now],

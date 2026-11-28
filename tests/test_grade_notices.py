@@ -158,6 +158,31 @@ def test_no_request_per_item(build):
     assert len(paths) == len(set(paths))                                               # each exactly once
 
 
+def test_graded_without_a_submission_is_one_notice_not_two(build):
+    """Canvas counts graded, not missing work as done, so an in-class quiz flips to "done" at the very moment it is
+    graded: "Graded 9/10" says it all, there is no separate "Submitted" row for the same item."""
+    quiz = lambda g: item(5, 1001, "In-class quiz", DUE, graded=g, points=10)       # never submitted by the student  # noqa: E731
+    row = submission_row(5, "In-class quiz", 10, due=DUE, state="graded", score=9, graded_at=T1)
+    prev = build(T0, FakeCanvas(planner=[quiz(False)], submissions={1001: [row]}))
+    page = build(T1, FakeCanvas(planner=[quiz(True)], submissions={1001: [row]}), prev=prev)
+    block = changes_block(page)
+    assert block.count("In-class quiz") == 1 and "出分了" in block and "<b>9/10</b>" in block
+    assert "已交" not in block
+    assert sn.diff(prev.data["state"], page.data["state"]).keys() == {"since", "graded"}
+
+
+def test_submitted_work_that_is_not_graded_yet_still_says_submitted(build):
+    """The two notices stay separate for different items: one handed in, another graded without a hand-in."""
+    DUE2 = pt("2026-11-21 23:59")
+    quiz = lambda g: item(5, 1001, "In-class quiz", DUE, graded=g, points=10)  # noqa: E731
+    handed = lambda s: item(6, 1001, "Lab 6", DUE2, submitted=s, points=10)    # noqa: E731
+    row = submission_row(5, "In-class quiz", 10, due=DUE, state="graded", score=9, graded_at=T1)
+    prev = build(T0, FakeCanvas(planner=[quiz(False), handed(False)], submissions={1001: [row]}))
+    page = build(T1, FakeCanvas(planner=[quiz(True), handed(True)], submissions={1001: [row]}), prev=prev)
+    block = changes_block(page)
+    assert block.count("出分了") == 1 and "In-class quiz" in block and block.count("已交") == 1 and "Lab 6" in block
+
+
 def test_english_card_has_no_chinese(build):
     prev = build(T0, canvas_with(lab(False)), lang="en")
     page = build(T1, canvas_with(lab(True, score=144)), prev=prev, lang="en")
