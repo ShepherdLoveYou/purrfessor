@@ -64,7 +64,7 @@ def ann_page(build, message, title="Reminder", lang="zh"):
 
 
 def preview_html(page):
-    return re.search(r'<div class="text-secondary small mt-2 preview" [^>]*>(.*?)</div>', page.html, re.S).group(1)
+    return re.search(r'<div class="text-secondary small mt-2 preview"[^>]*>(.*?)</div>', page.html, re.S).group(1)
 
 
 def test_the_page_shows_the_body_not_the_greeting(build):

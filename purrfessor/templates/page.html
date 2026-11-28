@@ -98,7 +98,8 @@
   .tick:checked { border-color: var(--tick-line); }
   .tick:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
   .preview { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-    cursor: pointer; white-space: pre-line; }
+    white-space: pre-line; }
+  .preview.cut { cursor: pointer; }
   .preview-2 { -webkit-line-clamp: 2; }
   .preview.open { display: block; }
   /* The pulsing "unread" dots stand still for people who ask for less motion */
@@ -328,12 +329,29 @@
   window.addEventListener("storage", function (e) {       // the same page ticked in another tab
     if (show[e.key]) { show[e.key](!!e.newValue); renderNext(Date.now()); renderStats(Date.now()); }
   });
-  // Clamped text opens on a tap, and on Enter / Space for keyboard and screen-reader users
-  document.querySelectorAll(".preview").forEach(function (p) {
-    function toggle() { p.setAttribute("aria-expanded", p.classList.toggle("open")); }
+  // Clamped text opens on a tap, and on Enter / Space for keyboard and screen-reader users. Only text that is really cut
+  // off is a control (a tab stop, a button with a name, a pointer); what is cut depends on the width, so it is decided at
+  // load, on resize, when the fonts arrive and when a closed <details> opens. An open one stays a button, to close it again.
+  var previews = document.querySelectorAll(".preview");
+  function armPreviews() {
+    previews.forEach(function (p) {
+      var cut = p.classList.contains("open") || p.scrollHeight > p.clientHeight + 1;
+      if (cut === p.classList.contains("cut")) return;
+      p.classList.toggle("cut", cut);
+      if (cut) { p.setAttribute("tabindex", "0"); p.setAttribute("role", "button"); p.setAttribute("aria-expanded", p.classList.contains("open")); }
+      else { p.removeAttribute("tabindex"); p.removeAttribute("role"); p.removeAttribute("aria-expanded"); }
+    });
+  }
+  previews.forEach(function (p) {
+    function toggle() { if (p.classList.contains("cut")) p.setAttribute("aria-expanded", p.classList.toggle("open")); }
     p.addEventListener("click", toggle);
     p.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
   });
+  armPreviews();
+  window.addEventListener("resize", armPreviews);
+  window.addEventListener("load", armPreviews);
+  document.addEventListener("toggle", armPreviews, true);      // <details> opening does not bubble: listen on the way down
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(armPreviews);
 
   var navbar = document.querySelector(".nav-sticky");
   function navFade() { if (navbar) navbar.classList.toggle("more", navbar.scrollWidth - navbar.clientWidth - navbar.scrollLeft > 4); }

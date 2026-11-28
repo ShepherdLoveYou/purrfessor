@@ -91,10 +91,66 @@ def test_only_the_three_stat_counters_are_live_regions_not_the_timers(build):
     assert "aria-live" not in timer and 'aria-live' not in re.search(r'<div class="h1 my-2 next-big">', page.html).group(0)
 
 
-def test_previews_are_buttons_for_the_keyboard(build):
-    page = build(NOW, canvas())
-    news = page.section("news")
-    assert re.search(r'<div class="text-secondary small mt-2 preview" tabindex="0" role="button" aria-expanded="false">Bring your laptop', news)
+def test_a_preview_is_not_a_button_until_the_page_finds_it_cut_off(build):
+    """Whether the clamp cuts anything off depends on the screen, so the server cannot say: the script adds the button."""
+    news = build(NOW, canvas()).section("news")
+    assert re.search(r'<div class="text-secondary small mt-2 preview">Bring your laptop', news)
+    assert not re.search(r'class="[^"]*preview[^"]*"[^>]*(tabindex|role|aria-expanded)', build(NOW, canvas()).html)
+
+
+NOTES = ("(function () { return [].map.call(document.querySelectorAll('#news .preview'), function (p) {"
+         " return {start: p.textContent.slice(0, 6), tabindex: p.getAttribute('tabindex'), role: p.getAttribute('role'),"
+         " expanded: p.getAttribute('aria-expanded'), cut: p.classList.contains('cut')}; }); })()")
+LONG_TEXT = "Please read the syllabus again. " * 8                     # 250 characters: about five lines on a phone, two on a desk
+SHORT = {"start": "Bring ", "tabindex": None, "role": None, "expanded": None, "cut": False}
+BUTTON = {"start": "Please", "tabindex": "0", "role": "button", "expanded": "false", "cut": True}
+
+
+def two_notes():
+    return FakeCanvas(announcements=[announcement(5, 1001, "Short", "<p>Bring your laptop to the lab, please.</p>", NOW),
+                                     announcement(6, 1001, "Long", f"<p>{LONG_TEXT}</p>", NOW - timedelta(hours=1))])
+
+
+@needs_chrome
+def test_only_the_note_that_is_cut_off_is_a_tab_stop_with_a_button_role(build, tmp_path):
+    """Before, every note was: 13 tab stops on the real page, 4 of them with nothing more to show, each named by its whole paragraph."""
+    page = build(NOW, two_notes(), config=PLAIN)
+    assert run_page(page, tmp_path, NOW, NOTES, size=(390, 900)) == [SHORT, BUTTON]
+    assert run_page(page, tmp_path, NOW, NOTES, size=(1400, 900)) == [SHORT, {**SHORT, "start": "Please"}]       # on a desk nothing is cut
+
+
+@needs_chrome
+def test_a_note_becomes_a_button_when_the_window_gets_narrower_and_stops_when_it_gets_wider(build, tmp_path):
+    page = build(NOW, two_notes(), config=PLAIN)
+    # (headless Chrome with a pretended clock paints no frames, so it never sends the resize event itself: send it)
+    frame = "window.parent.document.getElementById('f').style.width = '%dpx'; window.dispatchEvent(new Event('resize'));"
+    steps = [(1200, "window.log = []; window.snap = function () { log.push(%s[1]); };" % NOTES),
+             (1300, "snap();"), (1400, frame % 1400), (1700, "snap();"), (1800, frame % 390), (2100, "snap();")]
+    narrow, wide, narrow_again = run_page(page, tmp_path, NOW, "log", steps, size=(390, 900))
+    assert narrow == BUTTON and wide == {**SHORT, "start": "Please"} and narrow_again == BUTTON
+
+
+@needs_chrome
+def test_an_open_note_stays_a_button_so_that_it_can_be_closed(build, tmp_path):
+    page = build(NOW, two_notes(), config=PLAIN)
+    steps = [(1200, "window.log = []; window.snap = function () { log.push(%s[1]); };" % NOTES),
+             (1300, "document.querySelectorAll('#news .preview')[1].click(); snap();"), (1400, "snap();")]
+    opened, still = run_page(page, tmp_path, NOW, "log", steps, size=(390, 900))
+    assert opened == still == {**BUTTON, "expanded": "true"}
+
+
+@needs_chrome
+def test_a_note_in_a_closed_details_is_looked_at_again_when_it_is_opened(build, tmp_path):
+    """The "later" list is a closed <details>. Chrome measures what is inside it, other browsers may report no size at
+    load: undo what the script decided at load (as such a browser would have left it), open it, and the note is a button."""
+    quote = "Hi all, the final survey is due 10/30, " + "and please read the syllabus again " * 8 + "thanks."      # one long sentence: the whole quote
+    page = build(NOW, FakeCanvas(announcements=[announcement(7, 1001, "Dates", f"<p>{quote}</p>", NOW)]), config=PLAIN)
+    note = "document.querySelector('#todo details .preview')"
+    state = f"({{tabindex: {note}.getAttribute('tabindex'), role: {note}.getAttribute('role'), cut: {note}.classList.contains('cut')}})"
+    undo = f"{note}.classList.remove('cut'); ['tabindex', 'role', 'aria-expanded'].forEach(function (a) {{ {note}.removeAttribute(a); }});"
+    steps = [(1200, f"window.log = []; {undo} log.push({state}); {note}.closest('details').open = true;"), (1600, f"log.push({state});")]
+    undone, opened = run_page(page, tmp_path, NOW, "log", steps, size=(390, 900))
+    assert undone == {"tabindex": None, "role": None, "cut": False} and opened == {"tabindex": "0", "role": "button", "cut": True}
 
 
 def test_decorative_status_dots_are_hidden_from_screen_readers(build):

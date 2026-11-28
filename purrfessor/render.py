@@ -86,9 +86,10 @@ def class_note(c: dict, t: T) -> str:
 # ---------------------------------------------------------------- pieces
 
 def expandable(text: str, cls: str = "") -> str:
-    """Text clamped to a few lines; a tap, or Enter / Space on the keyboard, shows the rest (the page script toggles .open)."""
-    return (f'<div class="text-secondary small {cls} preview" tabindex="0" role="button" aria-expanded="false">'
-            f'{esc(text)}</div>')
+    """Text clamped to a few lines; a tap, or Enter / Space on the keyboard, shows the rest (the page script toggles .open).
+    It is a button only when the clamp really cuts something off, which depends on the screen: the script then adds
+    tabindex, role and aria-expanded (and the class .cut), so short notes are not tab stops that do nothing."""
+    return f'<div class="text-secondary small {cls} preview">{esc(text)}</div>'
 
 
 def group_header(fmt: str, n: int, key: str, cls: str = "") -> str:

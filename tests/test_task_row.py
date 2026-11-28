@@ -73,7 +73,7 @@ def test_a_quoted_note_is_two_lines_that_open_on_a_tap_or_a_key(build):
     page = build(NOW, FakeCanvas(announcements=ANN))
     block = row(page, "ann-51-1012")
     note = re.search(r'<div class="text-secondary small mt-1 preview-2 preview"([^>]*)>(.*?)</div>', block, re.S)
-    assert note and 'tabindex="0" role="button" aria-expanded="false"' in note.group(1)
+    assert note and note.group(1) == ""                           # not a button yet: the page script makes it one when it is really cut off
     assert "final survey is due 10/12" in note.group(2)
     assert ".preview-2 { -webkit-line-clamp: 2; }" in page.html
 
@@ -112,7 +112,8 @@ def test_rows_that_are_not_read_from_an_announcement_have_no_warning(build):
 
 @needs_chrome
 def test_the_note_opens_and_closes_with_click_enter_and_space_but_not_other_keys(build, tmp_path):
-    page = build(NOW, FakeCanvas(announcements=ANN))
+    long = [announcement(52, 1002, "Dates", "Hi all, the final survey is due 10/12 and " + "please read every question carefully " * 6 + "thanks.", NOW)]
+    page = build(NOW, FakeCanvas(announcements=long))                 # a quote longer than two lines on a phone: only then is it a button
     key = "p.dispatchEvent(new KeyboardEvent('keydown', {key: '%s', bubbles: true, cancelable: true}))"
     state = "({open: p.classList.contains('open'), expanded: p.getAttribute('aria-expanded')})"
     steps = [(1200, "window.p = document.querySelector('#todo .preview'); window.log = []; "
@@ -122,7 +123,7 @@ def test_the_note_opens_and_closes_with_click_enter_and_space_but_not_other_keys
              (1500, key % " " + "; snap();"),                      # Space opens
              (1600, key % "Tab" + "; snap();"),                    # Tab does nothing
              (1700, key % "Escape" + "; snap();")]                # nor does Escape
-    log = run_page(page, tmp_path, NOW, "log", steps)
+    log = run_page(page, tmp_path, NOW, "log", steps, size=(390, 900))
     assert log == [{"open": True, "expanded": "true"}, {"open": False, "expanded": "false"},
                    {"open": True, "expanded": "true"}, {"open": True, "expanded": "true"}, {"open": True, "expanded": "true"}]
 
