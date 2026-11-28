@@ -275,6 +275,9 @@ def grade_html(x: dict, t: T) -> str:
     return f' · <b>{esc(text)}</b>'
 
 
+GRADED_SHOWN = 5       # grades are often posted in bulk (a term of 1-point participation): list the biggest, fold the rest
+
+
 def changes_card(changes: dict, colors: dict, t: T) -> str:
     """What changed since the last snapshot — computed by code, not by the AI."""
     if not changes:
@@ -289,8 +292,11 @@ def changes_card(changes: dict, colors: dict, t: T) -> str:
     for x in changes.get("due_changed", []):
         rows.append(("calendar-event", "orange", t("ch_due"),
                      f'{course_badge(x["course"], colors)} {esc(x["title"])} · {esc(when(x["old_due"]))} → <b>{esc(when(x["due"]))}</b>'))
-    for x in changes.get("graded", []):
+    graded = sorted(changes.get("graded", []), key=lambda x: (-(x.get("points") or 0), x["course"], x["title"]))
+    for x in graded[:GRADED_SHOWN]:
         rows.append(("award", "green", t("ch_graded"), f'{course_badge(x["course"], colors)} {esc(x["title"])}{grade_html(x, t)}'))
+    if len(graded) > GRADED_SHOWN:
+        rows.append(("award", "green", t("ch_graded"), esc(t("ch_graded_more", n=len(graded) - GRADED_SHOWN))))
     for x in changes.get("removed", []):
         rows.append(("trash", "secondary", t("ch_removed"), f'{course_badge(x["course"], colors)} {esc(x["title"])}'))
     for a in changes.get("new_announcements", []):

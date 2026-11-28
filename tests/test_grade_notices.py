@@ -183,6 +183,41 @@ def test_submitted_work_that_is_not_graded_yet_still_says_submitted(build):
     assert block.count("出分了") == 1 and "In-class quiz" in block and block.count("已交") == 1 and "Lab 6" in block
 
 
+def posting(n: int, points=1, start=10, big=False):
+    """n one-point items graded at once (a participation grade posted for the whole term), plus a big one if asked."""
+    labs = [lab(True, score=points, pid=start + i, title=f"Participation {i:02d}", points=points) for i in range(n)]
+    return labs + ([lab(True, score=88, pid=900, title="Midterm", points=100)] if big else [])
+
+
+def test_a_posting_batch_does_not_fill_the_card(build):
+    """30 one-point items posted at once: the biggest few are listed, the rest fold into one "+N more" row."""
+    before = [lab(False, pid=10 + i, title=f"Participation {i:02d}", points=1) for i in range(30)] + [
+        lab(False, pid=900, title="Midterm", points=100)]
+    prev = build(T0, canvas_with(*before))
+    page = build(T1, canvas_with(*posting(30, big=True)), prev=prev)
+    block = changes_block(page)
+    assert block.count("list-group-item") == 6                                  # 5 graded + 1 "more"
+    assert "Midterm" in block and "<b>88/100</b>" in block                      # biggest work first, always shown
+    assert "还有 26 项" in block
+    assert block.count("Participation") == 4                                   # the rest of the 5 rows
+
+
+def test_exactly_the_cap_has_no_more_row(build):
+    prev = build(T0, canvas_with(*[lab(False, pid=10 + i, title=f"Item {i}") for i in range(6)]))
+    five = build(T1, canvas_with(*([lab(True, score=140, pid=10 + i, title=f"Item {i}") for i in range(5)]
+                                   + [lab(False, pid=15, title="Item 5")])), prev=prev)
+    assert changes_block(five).count("出分了") == 5 and "还有" not in changes_block(five)
+    six = build(T1, canvas_with(*[lab(True, score=140, pid=10 + i, title=f"Item {i}") for i in range(6)]), prev=prev)
+    assert changes_block(six).count("出分了") == 6 and "还有 1 项" in changes_block(six)
+
+
+def test_the_snapshot_keeps_every_grade_even_when_the_card_folds_them(build):
+    prev = build(T0, canvas_with(*[lab(False, pid=10 + i, title=f"Item {i}", points=1) for i in range(12)]))
+    page = build(T1, canvas_with(*posting(12, start=10)), prev=prev)
+    assert len(sn.diff(prev.data["state"], page.data["state"])["graded"]) == 12
+    assert changes_block(page).count("list-group-item") == 6
+
+
 def test_english_card_has_no_chinese(build):
     prev = build(T0, canvas_with(lab(False)), lang="en")
     page = build(T1, canvas_with(lab(True, score=144)), prev=prev, lang="en")
@@ -190,3 +225,6 @@ def test_english_card_has_no_chinese(build):
     assert "Graded" in block and "<b>144/150</b>" in block and not re.search(r"[一-鿿]", block)
     regrade = build(T2, canvas_with(lab(True, score=148)), prev=page, lang="en")
     assert "(was 144)" in changes_block(regrade) and not re.search(r"[一-鿿]", changes_block(regrade))
+    prev = build(T0, canvas_with(*[lab(False, pid=10 + i, title=f"Item {i}", points=1) for i in range(8)]), lang="en")
+    batch = build(T1, canvas_with(*posting(8)), prev=prev, lang="en")
+    assert "+3 more" in changes_block(batch) and not re.search(r"[一-鿿]", changes_block(batch))
