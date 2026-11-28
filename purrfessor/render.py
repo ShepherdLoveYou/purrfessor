@@ -345,6 +345,12 @@ def changes_card(changes: dict, colors: dict, t: T) -> str:
             f'{esc(since)}</div></div><div class="list-group list-group-flush">{items}</div></section></div>')
 
 
+def below_100(pct: float) -> float:
+    """Canvas's total, which has two decimals, printed with one: below 100 it must not print as "100.0" (99.96 reads 99.9).
+    The rate has the same rule, decided by the points (see grades_card)."""
+    return min(pct, 99.9) if pct < 100 else pct
+
+
 def grades_card(grades: list[dict], colors: dict, t: T) -> str:
     """One row per course: course and missing / late flags on top, then the grade Canvas shows and the rate on graded
     work (one decimal each), with a thin bar for that rate and the points under it. On a phone a row is about 105 px."""
@@ -352,7 +358,7 @@ def grades_card(grades: list[dict], colors: dict, t: T) -> str:
         return ""
     rows = []
     for g in grades:
-        cur = (f'<span class="h3 mb-0">{g["current"]:.1f}%</span>' if g["current"] is not None
+        cur = (f'<span class="h3 mb-0">{below_100(g["current"]):.1f}%</span>' if g["current"] is not None
                else f'<span class="text-secondary">{t("grade_hidden")}</span>')
         rate, bar = f'<span class="text-secondary">{t("grade_none")}</span>', ""
         if g["rate"] is not None:
@@ -362,8 +368,8 @@ def grades_card(grades: list[dict], colors: dict, t: T) -> str:
             detail = t("grade_rate_detail", **points)
             rate = f'<span class="h3 mb-0">{pct:.1f}%</span>'
             bar = (f'<div class="col-12 order-sm-2"><div class="progress progress-sm" role="progressbar" aria-label="{esc(label)}" '
-                   f'aria-valuenow="{pct:.1f}" aria-valuemin="0" aria-valuemax="100">'
-                   f'<div class="progress-bar" style="width:{pct:.1f}%"></div></div>'
+                   f'aria-valuenow="{min(pct, 100):.1f}" aria-valuemin="0" aria-valuemax="100">'      # extra credit: the text says 105, the bar is full
+                   f'<div class="progress-bar" style="width:{min(pct, 100):.1f}%"></div></div>'
                    f'<div class="text-secondary small mt-1">{esc(detail)}</div></div>')
         flags = ((f'<span class="badge bg-red-lt">{t("missing_n", n=g["missing"])}</span> ' if g["missing"] else "")
                  + (f'<span class="badge bg-orange-lt">{t("late_n", n=g["late"])}</span>' if g["late"] else "")

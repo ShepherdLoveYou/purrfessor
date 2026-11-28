@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from conftest import FakeCanvas, pt
+from conftest import COURSES, FakeCanvas, pt
 
 NOW = pt("2026-10-20 12:00")
 
@@ -51,6 +51,31 @@ def test_rates_have_one_decimal_and_are_never_rounded_up_to_100(build):
     almost = grades(build, [sub(1459.99, 1460)])                  # 99.9993%: rounds to 100.0 but is not full marks
     assert '<span class="h3 mb-0">99.9%</span>' in almost
     assert '<span class="h3 mb-0">100.0%</span>' in grades(build, [sub(10, 10), sub(5, 5)])
+
+
+def test_extra_credit_keeps_its_number_but_the_bar_and_its_value_stop_at_100(build):
+    """105 of 100 points is a real 105.0%; a progressbar's value above its maximum is invalid ARIA and the fill would overflow."""
+    card = grades(build, [sub(105, 100)])
+    bar = re.search(r'<div class="progress progress-sm" ([^>]*)><div class="progress-bar" style="width:([\d.]+)%"></div></div>', card)
+    assert '<span class="h3 mb-0">105.0%</span>' in card and "105/100 · 1 项" in card         # the text says what it is
+    assert bar and bar.group(2) == "100.0" and 'aria-valuenow="100.0" aria-valuemin="0" aria-valuemax="100"' in bar.group(1)
+    assert 'aria-label="已批改作业得分率 105.0%' in bar.group(1)                                # and so does the name of the bar
+
+
+def current_card(build, score):
+    """The grades card of a course whose total is `score` on Canvas."""
+    courses = [{**COURSES[0], "enrollments": [{"type": "student", "computed_current_score": score}]}, *COURSES[1:]]
+    page = build(NOW, FakeCanvas(courses=courses, submissions={1001: [sub(9, 10)]}))
+    return page.html.split('id="grades"')[1].split("</section>")[0]
+
+
+def test_the_total_is_never_rounded_up_to_100_either(build):
+    """Canvas says 99.96: one decimal would print "100.0%" for a course that is not at full marks (the rate has the same rule)."""
+    assert '<span class="h3 mb-0">99.9%</span>' in current_card(build, 99.96)
+    assert '<span class="h3 mb-0">99.9%</span>' in current_card(build, 99.9)
+    assert '<span class="h3 mb-0">91.6%</span>' in current_card(build, 91.57)                  # everything else rounds as before
+    assert '<span class="h3 mb-0">100.0%</span>' in current_card(build, 100)                  # full marks are still 100
+    assert '<span class="h3 mb-0">103.5%</span>' in current_card(build, 103.5)                # and extra credit keeps its number
 
 
 def test_each_course_with_graded_work_has_a_labelled_progress_bar(build):
