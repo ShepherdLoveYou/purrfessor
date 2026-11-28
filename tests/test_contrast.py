@@ -111,3 +111,9 @@ def test_finished_items_are_faded_with_colour_not_opacity():
     assert "opacity" not in done and "var(--tblr-secondary-color)" in done and "line-through" in done
     for opacity in re.findall(r"\.(?:cls\.past|task\.checked \.cd) \{ opacity: ([\d.]+)", CSS):
         assert float(opacity) >= .7        # faded, but not below 3:1
+
+
+def test_the_active_nav_pill_and_the_grey_nav_links_are_mixed_too():
+    """The active pill was 3.2:1 in dark mode (Tabler's blue on its own wash); the others use the secondary text colour."""
+    assert ".nav-sticky .nav-link.active { --tone: var(--tblr-blue); color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)); }" in CSS
+    assert ".nav-sticky .nav-link { color: var(--tblr-secondary-color); }" in CSS

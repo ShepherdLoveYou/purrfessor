@@ -59,16 +59,16 @@ def hermetic(page: str) -> str:
     return re.sub(r'<link rel="stylesheet" href="https://[^"]+">|<script src="https://[^"]+"></script>', "", page)
 
 
-def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False):
+def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False, init=""):
     """Load page.html in Chrome with the clock at `now`; `steps` = [(virtual ms, js)] run in order (the js can call
     jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
-    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS)."""
+    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
            f'var p = document.createElement("pre"); p.id = "probe-result"; p.textContent = r; document.body.appendChild(p); }}, 3500);')
     doc = page.html if hasattr(page, "html") else page
     doc = doc if cdn else hermetic(doc)
-    doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), BLOCK_STORAGE if blocked_storage else ""), 1)
+    doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), (BLOCK_STORAGE if blocked_storage else "") + init), 1)
     doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
     dom = render_dom(doc, tmp_path, size)
     found = re.search(r'<pre id="probe-result">(.*?)</pre>', dom, re.S)

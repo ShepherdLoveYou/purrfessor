@@ -6,11 +6,17 @@
 <title>{{TITLE}}</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,{{FAVICON}}">
 <script>
-  // Follow the system's dark mode: Tabler reads data-bs-theme, FullCalendar reads data-color-scheme
+  // Follow the system's dark mode, also while the page stays open (a phone switches at sunset): Tabler reads
+  // data-bs-theme, FullCalendar reads data-color-scheme
   (function () {
-    var dark = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.setAttribute("data-bs-theme", dark ? "dark" : "light");
-    document.documentElement.setAttribute("data-color-scheme", dark ? "dark" : "light");
+    var q = window.matchMedia && matchMedia("(prefers-color-scheme: dark)");
+    function apply() {
+      var theme = q && q.matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-bs-theme", theme);
+      document.documentElement.setAttribute("data-color-scheme", theme);
+    }
+    apply();
+    if (q && q.addEventListener) q.addEventListener("change", apply);
   })();
 </script>
 <!-- Open-source kits: Tabler (MIT), Tabler Icons (MIT), FullCalendar (MIT) -->
@@ -48,6 +54,7 @@
   .alert-warning { --tblr-alert-color: color-mix(in srgb, var(--tblr-warning) var(--tone-mix), var(--tone-ink)); }
   .list-group-header { color: var(--tblr-secondary-color); }
   .nav-sticky .nav-link { color: var(--tblr-secondary-color); }
+  .nav-sticky .nav-link.active { --tone: var(--tblr-blue); color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)); }
   .min-w-0 { min-width: 0; }
   .time-col { min-width: 3.5rem; }
   /* The page's side padding (at least the notch / rounded-corner inset, for a phone held sideways or a home-screen app).
@@ -88,6 +95,10 @@
   .preview.open { display: block; }
   .preview:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }
   #calendar .deadline { font-weight: 600; }
+  /* FullCalendar's forma palette is a blue-black (#030712) in dark mode, darker than the page and the cards around it:
+     give the calendar the card's own colours (and a readable grey for its hour labels) in both themes */
+  #calendar { --fc-forma-background: var(--tblr-bg-surface); --fc-forma-border: var(--tblr-border-color);
+    --fc-forma-foreground: var(--tblr-body-color); --fc-forma-muted-foreground: var(--tblr-secondary-color); }
   .term-progress { width: 9rem; }
   .term-week { margin-bottom: .25rem; }
   .brand-logo { display: block; }
@@ -111,6 +122,8 @@
     align-content: center; justify-items: center; color: #111; font-weight: 500; font-size: 4.7cqw; line-height: 1.28;
     white-space: nowrap; font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
   .meme-num { font-variant-numeric: tabular-nums; }
+  /* The picture is on a white page: in dark mode dim it so it is not a glaring slab (same position, size and aspect) */
+  :root[data-bs-theme="dark"] .meme { filter: brightness(.7) contrast(1.05); }
   .meme-en .meme-cap { font-size: 4.1cqw; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
   .meme-foot { max-width: 560px; }
   @media (max-width: 575.98px) {
