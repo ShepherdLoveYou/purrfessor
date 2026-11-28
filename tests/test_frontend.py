@@ -5,10 +5,12 @@ these tests need Chrome but no network: the script and the inline CSS are all th
 from __future__ import annotations
 
 import re
+import urllib.error
+import urllib.request
 from datetime import timedelta
 
 import pytest
-from browser import PLAIN, needs_cdn, needs_chrome, run_page
+from browser import CDN_URLS, PLAIN, needs_cdn, needs_chrome, run_page
 from conftest import FakeCanvas, item, pt
 
 NEXT = ("({big: document.querySelector('#next-due .next-big').className, text: document.querySelector('#next-due .next-big').textContent,"
@@ -61,6 +63,22 @@ def test_phone_header_keeps_the_title_on_one_line_and_never_scrolls_sideways(bui
     assert got["lines"] == 1, got
     assert got["sw"] <= got["cw"], got                              # compared with clientWidth: a classic scrollbar takes 15 px
     assert got["nav"][0] >= 0 and got["nav"][1] <= got["cw"], got   # the nav is as wide as the screen, not wider
+
+
+@needs_cdn
+def test_every_cdn_file_the_page_links_to_exists():
+    """The layout test above skips itself when Chrome cannot get a CDN file. A mistyped version would look the same, and
+    would leave the real page unstyled: ask the CDN for each file. Only a 404 fails; no network (or a CDN outage) skips."""
+    gone = []
+    for url in CDN_URLS:
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=10).close()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                gone.append(url)
+        except OSError:
+            pytest.skip(f"cannot reach {url}")
+    assert not gone, gone
 
 
 # ---------------------------------------------------------------- the counters follow the clock and the ticks

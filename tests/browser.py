@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import urllib.request
+from pathlib import Path
 
 import pytest
 from conftest import CONFIG
@@ -33,15 +34,26 @@ def render_dom(html: str, tmp_path, name: str = "p.html") -> str:
 needs_chrome = pytest.mark.skipif(CHROME is None, reason="no Chrome")
 
 
+PAGE_TEMPLATE = Path(__file__).resolve().parent.parent / "purrfessor" / "templates" / "page.html"
+# every file the page takes from a CDN, read from the template so that a version bump needs no change here
+CDN_URLS = re.findall(r'(?:href|src)="(https://[^"]+)"', PAGE_TEMPLATE.read_text(encoding="utf-8"))
+TABLER_CSS = next(u for u in CDN_URLS if u.endswith("/tabler.min.css"))
+
+
 def cdn_reachable() -> bool:
+    """A quick ping from Python, so that a machine with no network skips at once. It cannot promise that Chrome gets the
+    files too (see run_page: a layout test skips itself when a CDN file did not arrive)."""
     try:
-        urllib.request.urlopen("https://cdn.jsdelivr.net/npm/@tabler/core@1.6.1/dist/css/tabler.min.css", timeout=5).close()
+        urllib.request.urlopen(TABLER_CSS, timeout=5).close()
         return True
     except OSError:
         return False
 
 
 needs_cdn = pytest.mark.skipif(not cdn_reachable(), reason="no network: layout tests need Tabler's real CSS")
+# in the page: did every CDN stylesheet and FullCalendar arrive, and does Tabler define its variables (a 200 that is not CSS)?
+CDN_LOADED = ("[].every.call(document.querySelectorAll('link[rel=stylesheet][href^=\"https:\"]'), function (l) { return !!l.sheet; })"
+              " && !!window.FullCalendar && !!getComputedStyle(document.body).getPropertyValue('--tblr-body-bg').trim()")
 PLAIN = CONFIG.split("[[recurring]]")[0]      # no weekly homework task to get in the way of "the next deadline"
 
 CLOCK = """<script>(function () {
@@ -70,12 +82,14 @@ def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False,
              name="p.html"):
     """Load page.html in Chrome with the clock at `now`; `steps` = [(virtual ms, js)] run in order (the js can call
     jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
-    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own,
+    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS) and skips the test if Chrome did not get all of
+    them (the deploy runs the suite as its gate: a CDN hiccup must not block it); `init` is JS that runs before the page's own,
     `css` is added to the head (a stand-in for the Tabler rules a test needs), `name` is the file name ("archive/2026-10-09.html"
     makes it a snapshot page); `size` = (width, height) of the viewport, from 320 up (see framed)."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
+    loaded = f'out.setAttribute("data-cdn", {CDN_LOADED} ? "ok" : "missing");' if cdn else ""
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
-           f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r;'
+           f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r; {loaded}'
            f'(window.parent !== window ? window.parent.document : document).body.appendChild(out); }}, 3500);')   # a framed page reports to its frame
     doc = page.html if hasattr(page, "html") else page
     doc = doc if cdn else hermetic(doc)
@@ -83,6 +97,8 @@ def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False,
     doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
     assert not (size and name != "p.html"), "a sized page runs in an iframe: it has no file name of its own"
     dom = render_dom(framed(doc, *size) if size else doc, tmp_path, name=name)
-    found = re.search(r'<pre id="probe-result">(.*?)</pre>', dom, re.S)
+    found = re.search(r'<pre id="probe-result"[^>]*>(.*?)</pre>', dom, re.S)
     assert found, "the probe never ran: " + dom[-600:]
+    if cdn and 'data-cdn="missing"' in dom:      # the ping from Python passed, but Chrome did not get every file: a flaky CDN is not a bug
+        pytest.skip("a CDN file did not load in Chrome")
     return json.loads(htmllib.unescape(found.group(1)))
