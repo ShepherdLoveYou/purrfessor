@@ -78,18 +78,36 @@ def test_a_quoted_note_is_two_lines_that_open_on_a_tap_or_a_key(build):
     assert ".preview-2 { -webkit-line-clamp: 2; }" in page.html
 
 
-def test_the_note_suffix_is_short_in_both_languages(build):
-    zh = row(build(NOW, FakeCanvas(announcements=ANN)), "ann-51-1012")
-    en = row(build(NOW, FakeCanvas(announcements=ANN), lang="en"), "ann-51-1012")
-    assert "” —— 自动读的，请核对</div>" in zh and "请点开核对" not in zh
-    assert "” — read from the announcement, please check</div>" in en and "double-check" not in en and not re.search(r"[一-鿿]", en)
+CHECK = "badge bg-yellow-lt"
 
 
-def test_the_note_suffix_when_the_ai_read_it(build):
+def parts(block: str) -> tuple[str, str]:
+    """(the meta line, the clamped quote) of a row."""
+    return meta(block), re.search(r'<div class="text-secondary small mt-1 preview-2 preview"[^>]*>(.*?)</div>', block, re.S).group(1)
+
+
+def test_the_check_warning_sits_beside_the_date_not_at_the_end_of_the_clamped_quote(build):
+    """The two-line clamp hid "please check" for any quote over two lines, so the date looked certain until the note was
+    opened: the warning is a badge in the meta line, and the clamped text is the quote alone."""
+    zh, en = (row(build(NOW, FakeCanvas(announcements=ANN), lang=lang), "ann-51-1012") for lang in ("zh", "en"))
+    (zh_meta, zh_quote), (en_meta, en_quote) = parts(zh), parts(en)
+    assert f'<span class="{CHECK}"><i class="ti ti-calendar-question"></i> 自动读的，请核对</span>' in zh_meta
+    assert f'<span class="{CHECK}"><i class="ti ti-calendar-question"></i> Auto-read, please check</span>' in en_meta
+    for quote in (zh_quote, en_quote):
+        assert quote.startswith("“") and quote.endswith("”") and "final survey is due 10/12" in quote and "check" not in quote and "核对" not in quote
+    assert not re.search(r"[一-鿿]", en)
+
+
+def test_the_check_warning_when_the_ai_read_it(build):
     ai = {"model": "m", "tasks": [], "announcements": [{"id": "51", "title": "Dates", "summary": "s", "deadlines": [
         {"what": "Survey", "due": "2026-10-12T23:59", "quote": "the final survey is due 10/12"}]}]}
-    page = build(NOW, FakeCanvas(announcements=ANN), ai=ai)
-    assert "“the final survey is due 10/12” —— AI 读的，请核对</div>" in row(page, "ann-51-1012")
+    ai_meta, quote = parts(row(build(NOW, FakeCanvas(announcements=ANN), ai=ai), "ann-51-1012"))
+    assert "AI 读的，请核对</span>" in ai_meta and quote == "“the final survey is due 10/12”"
+
+
+def test_rows_that_are_not_read_from_an_announcement_have_no_warning(build):
+    page = build(NOW, FakeCanvas(planner=[item(1, 1001, "Essay", pt("2026-10-10 23:59"))]))
+    assert CHECK not in row(page, "canvas-assignment-1") and CHECK not in row(page, "HW-DEMO 002A-2026-10-09")
 
 
 @needs_chrome

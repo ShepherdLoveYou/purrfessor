@@ -110,6 +110,8 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
         text.append(esc(t("pts", p=f"{task.points:g}")))
     text.append(when)
     meta = course_badge(task.course, colors) + f'<span>{" · ".join(text)}</span>'     # no text node starts with a "·"
+    if task.check:         # a date a program or the AI read from an announcement: the warning is not part of the clamped quote
+        meta += f'<span class="badge bg-yellow-lt"><i class="ti ti-calendar-question"></i> {esc(task.check)}</span>'
     if task.feedback:      # the comment itself stays on Canvas: the badge only links to where it is
         meta += link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt")
     # the weekly homework is the same title every week: the name a screen reader says carries the course and the due date too

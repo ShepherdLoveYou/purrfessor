@@ -23,6 +23,7 @@ class Task:
     note: str = ""
     translated: str = ""      # AI translation of the title (Chinese UI only)
     ai_note: bool = False     # note came from the AI reading an announcement
+    check: str = ""           # "read by AI, please check": said next to the date, not inside the (clamped) note
     aid: int | None = None    # Canvas assignment id behind this item (a quiz's differs from its own id)
     graded: bool = False      # graded and the grade is posted (excused work is not "graded")
     score: float | None = None  # points earned, when graded and Canvas shows them

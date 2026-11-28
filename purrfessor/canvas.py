@@ -235,10 +235,10 @@ def announcement_tasks(anns: list[dict], canvas_tasks: list[Task], now: datetime
             if not now <= due <= now + timedelta(days=30) or key in taken or key in seen:
                 continue
             seen.add(key)
-            note_key = "ann_note_ai" if m["what"] else "ann_note_rule"
+            check_key = "ann_check_ai" if m["what"] else "ann_check_rule"
             out.append(Task(id=f"ann-{a['id']}-{due:%m%d}", title=m["what"] or t("from_announcement", title=a["title"]),
                             course=a["course"], due=due, url=a["url"], source="announcement", kind="announcement",
-                            note=t(note_key, quote=m["quote"]), ai_note=bool(m["what"])))
+                            note=t("ann_note", quote=m["quote"]), check=t(check_key), ai_note=bool(m["what"])))
     return out
 
 
