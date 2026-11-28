@@ -204,7 +204,8 @@ def meme_card(now: datetime, t: T, tz) -> tuple[str, dict]:
 
 def calendar_payload(today: date, term: dict, classes: list[dict], tasks: list[Task], colors: dict,
                      holidays: set[str], tz, t: T) -> dict:
-    """FullCalendar data: every class meeting this term (holidays excluded) + deadlines in the all-day row."""
+    """FullCalendar data: every class meeting this term (holidays excluded) + deadlines in the all-day row.
+    Saturday and Sunday are hidden unless a class meets then or a deadline falls on one in the next two weeks."""
     start = as_date(term["week1_monday"]) - timedelta(days=7)
     end = as_date(term.get("last_class_day", today + timedelta(days=90))) + timedelta(days=14)
     events, hours, weekend = [], [], False
@@ -216,11 +217,15 @@ def calendar_payload(today: date, term: dict, classes: list[dict], tasks: list[T
             hours += [c["start_dt"].hour, c["end_dt"].hour + (1 if c["end_dt"].minute else 0)]
             weekend |= day.weekday() >= 5
         day += timedelta(days=1)
+    shown = today - timedelta(days=today.weekday()), today + timedelta(days=14)     # this week and the next two
     for x in tasks:
         if not x.done:
             events.append({"title": f"{x.due:%H:%M} {x.course} {x.display_title}", "start": x.due.date().isoformat(),
                            "allDay": True, "url": x.url, "classNames": ["deadline"],
                            "color": HEX[colors.get(x.course, "secondary")]})
+            # a Saturday or Sunday deadline in the weeks the calendar opens on needs those columns too (a far-off one
+            # does not: it would keep seven columns for the whole term)
+            weekend |= x.due.weekday() >= 5 and shown[0] <= x.due.date() <= shown[1]
     lo, hi = (min(hours), max(hours)) if hours else (8, 18)
     return {"events": events, "slotMinTime": f"{max(lo - 1, 0):02d}:00:00", "slotMaxTime": f"{min(hi + 1, 24):02d}:00:00",
             "hiddenDays": [] if weekend else [0, 6]}
