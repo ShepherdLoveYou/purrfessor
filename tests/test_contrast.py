@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from purrfessor.render import COLORS, TEMPLATE
+from purrfessor.render import COLORS, HEX, TEMPLATE
 
 # Tabler 1.6.1 palette as sRGB (its oklch values, read back in Chrome) and the card colour of each theme. A Tabler upgrade
 # changes these: measure them again (getComputedStyle + a canvas read) and update here.
@@ -63,6 +63,15 @@ def test_badge_text_reaches_4_5(name, scheme):
     colour, card = rgb(base(name, scheme)), rgb(CARD[scheme])
     text, wash = mix(colour, rgb(ink), share), mix(colour, card, WASH)
     assert contrast(text, wash) >= 4.5, (name, scheme, contrast(text, wash))
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("name", COLORS)
+def test_next_class_number_reaches_4_5(name, scheme):
+    """The big "starts in …" number keeps its course hue (the calendar's hex colour) mixed toward the ink; it sits on the card."""
+    ink, share = tokens(scheme)
+    assert "#next-class .next-big { color: color-mix(in srgb, var(--c, var(--tblr-body-color)) var(--tone-mix), var(--tone-ink))" in CSS
+    assert contrast(mix(rgb(HEX[name]), rgb(ink), share), rgb(CARD[scheme])) >= 4.5
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])

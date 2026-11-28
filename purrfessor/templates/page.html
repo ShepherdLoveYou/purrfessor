@@ -57,7 +57,13 @@
   .nav-sticky .nav-link { white-space: nowrap; }
   section[id] { scroll-margin-top: 4.5rem; }
   .next .card-status-start { background: var(--c, var(--tblr-border-color)); }
-  .next .next-big { color: var(--c, inherit); font-variant-numeric: tabular-nums; }
+  .next .next-big { font-variant-numeric: tabular-nums; }
+  /* The number follows urgency, not the course: a green "8 hours left" reads as "fine" when it is due tonight. The
+     course colour stays on the status bar; the next class (no urgency) keeps its course hue, mixed to 4.5:1. */
+  #next-class .next-big { color: color-mix(in srgb, var(--c, var(--tblr-body-color)) var(--tone-mix), var(--tone-ink)); }
+  .next-big.tone-red { --tone: var(--tblr-red); }
+  .next-big.tone-orange { --tone: var(--tblr-orange); }
+  .next-big.tone-red, .next-big.tone-orange { color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)); }
   .cd { font-variant-numeric: tabular-nums; min-width: 5.5rem; }
   /* Finished items are faded with a colour, not opacity: their text stays above 4.5:1 (done titles) / 3:1 (the rest) */
   .task.done .title, .task.checked .title { text-decoration: line-through; color: var(--tblr-secondary-color); }
@@ -138,7 +144,9 @@
     var n = Math.round((Date.parse(YMD.format(new Date(t))) - Date.parse(YMD.format(new Date()))) / 864e5);
     return (L.rel && n >= 0 && n < L.rel.length) ? L.rel[n] : WDAY.format(new Date(t));
   }
-  function badgeFor(ms) { return ms < 864e5 ? "bg-red-lt" : ms < 2592e5 ? "bg-orange-lt" : ms < 6048e5 ? "bg-blue-lt" : "bg-secondary-lt"; }
+  // How urgent is it (red under a day, orange under three, blue under a week): the badges and the "next deadline" number share this
+  function urgency(ms) { return ms < 864e5 ? "red" : ms < 2592e5 ? "orange" : ms < 6048e5 ? "blue" : "secondary"; }
+  function badgeFor(ms) { return "bg-" + urgency(ms) + "-lt"; }
   function setBadge(el, cls) { BADGES.forEach(function (b) { el.classList.remove(b); }); el.classList.add(cls); }
 
   var snap = location.pathname.match(/\/archive\/(\d{4})-(\d{2})-(\d{2})\.html$/);
@@ -150,10 +158,11 @@
   if (greet && L.greet) { var h = new Date().getHours();
     greet.textContent = L.greet[h < 5 ? 0 : h < 11 ? 1 : h < 13 ? 2 : h < 18 ? 3 : 4]; }
 
-  function setNext(id, color, big, title, url, meta) {
+  function setNext(id, color, big, title, url, meta, tone) {
     var el = document.getElementById(id); if (!el) return;
     el.style.setProperty("--c", color || "");
-    el.querySelector(".next-big").textContent = big;
+    var n = el.querySelector(".next-big"); n.textContent = big;
+    n.classList.toggle("tone-red", tone === "red"); n.classList.toggle("tone-orange", tone === "orange");
     var t = el.querySelector(".next-title"); t.textContent = "";
     if (url) { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener";
       a.className = "text-reset"; a.textContent = title; t.appendChild(a); } else t.textContent = title;
@@ -168,7 +177,7 @@
     } else setNext("next-class", "", "—", L.noMore, "", "");
     var t = (D.tasks || []).filter(function (x) { return new Date(x.due) > now && !get("purrfessor-done:" + x.id); })[0];
     if (t) setNext("next-due", t.color, fill(L.left, { t: fmt(new Date(t.due) - now) }), t.title, t.url,
-      t.course + " · " + relDay(t.due) + " " + hhmm(t.due) + " " + L.due);
+      t.course + " · " + relDay(t.due) + " " + hhmm(t.due) + " " + L.due, urgency(new Date(t.due) - now));
     else setNext("next-due", "", "—", L.nothingDue, "", "");
   }
   function renderMeme(now) {

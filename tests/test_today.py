@@ -283,10 +283,11 @@ CHROME = next((p for p in ["/Applications/Google Chrome.app/Contents/MacOS/Googl
                if p and shutil.os.path.exists(p)), None)
 
 
-def render_dom(html: str, tmp_path) -> str:
+def render_dom(html: str, tmp_path, size: tuple[int, int] | None = None) -> str:
     f = tmp_path / "p.html"
     f.write_text(html, encoding="utf-8")
     cmd = [CHROME, "--headless=new", "--disable-gpu", f"--user-data-dir={tmp_path / 'ud'}",
+           *([f"--window-size={size[0]},{size[1]}"] if size else []),
            "--virtual-time-budget=4000", "--dump-dom", f.as_uri()]
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=40).stdout
