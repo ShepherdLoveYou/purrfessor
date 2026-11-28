@@ -133,6 +133,27 @@ def test_cap_and_per_course_limit(build):
     assert len(titles(undated_html(build(NOW, FakeCanvas(submissions=courses))))) == 6   # 3 + 3, under the cap of 8
 
 
+def test_work_nobody_can_hand_in_on_canvas_ranks_below_the_rest(build):
+    """Placeholders ("available at end of quarter", submission type none / on paper) are still listed, but after the work
+    that is handed in on Canvas: they must not take the slots of real exams, which the per-course cap would then hide."""
+    rows = {1001: [submission_row(1, "Online Homework (available at end of quarter)", 100, submission_types=["none"]),
+                   submission_row(2, "Exam 1", 40, submission_types=["external_tool"]),
+                   submission_row(3, "Exam 2", 40, submission_types=["external_tool"]),
+                   submission_row(4, "Exam 3", 40, submission_types=["external_tool"]),
+                   submission_row(5, "Paper essay", 30, submission_types=["on_paper"])],
+            1002: [submission_row(6, "Final Group Presentation", 25, cid=1002, submission_types=["none"]),
+                   submission_row(7, "Report", 25, cid=1002, submission_types=["online_text_entry", "online_upload"]),
+                   submission_row(8, "Sparse record", 26, cid=1002)]}               # no submission_types: not demoted
+    block = undated_html(build(NOW, FakeCanvas(submissions=rows)))
+    assert titles(block) == ["Exam 1", "Exam 2", "Exam 3", "Sparse record", "Report", "Final Group Presentation"]
+    assert "还有 2 项没列出" in block and "还没设截止日期 · 8 项" in block              # Online Homework + Paper essay: counted, folded
+    assert "Online Homework" not in block                                              # (never mixed up with the real work)
+    # nothing else is lost: with room left, the placeholders are listed after the rest
+    only = {1001: [rows[1001][0], rows[1001][1], rows[1001][4]]}
+    assert titles(undated_html(build(NOW, FakeCanvas(submissions=only)))) == [
+        "Exam 1", "Online Homework (available at end of quarter)", "Paper essay"]
+
+
 def test_requests_are_shared_and_features_independent(build):
     rows = {1001: [submission_row(1, "Project", 100)]}
     canvas = FakeCanvas(submissions=rows)

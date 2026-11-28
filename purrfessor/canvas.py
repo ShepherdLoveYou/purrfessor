@@ -255,10 +255,21 @@ def handed_in(s: dict) -> bool:
                 or s.get("workflow_state") in ("submitted", "graded", "pending_review"))
 
 
+NO_HAND_IN = {"none", "on_paper"}      # submission types with nothing to upload: a grade the teacher types in, paper work
+
+
+def uploads_on_canvas(a: dict) -> bool:
+    """Is there something to hand in on Canvas for this work? A record that says nothing about it counts as yes."""
+    types = a.get("submission_types") or []
+    return not types or not set(types) <= NO_HAND_IN
+
+
 def undated(fetched: Fetched, names: dict, now: datetime, tz, base_url: str, min_points: float = 25,
             known: frozenset | set = frozenset()) -> list[dict]:
     """Published work worth `min_points` or more that has no due date and nothing handed in yet: the planner only
-    lists dated items, so the biggest project or exam of the term can be missing from the page. Biggest first.
+    lists dated items, so the biggest project or exam of the term can be missing from the page. Biggest first, but
+    work with nothing to hand in on Canvas ("available at end of quarter" placeholders, paper work) after the rest: it
+    is still listed, but must not take the slots of real exams. No guessing from titles: that is school-specific.
     Work that is excused, graded, locked, unpublished or kept out of the final grade is left out; so is anything
     already on the page (`known` assignment ids). A date in the description is only a hint ("hints"), read by the
     same rule-based helper as announcements, never a deadline.
@@ -292,6 +303,7 @@ def undated(fetched: Fetched, names: dict, now: datetime, tz, base_url: str, min
                     hints.append({"due": m["due"], "quote": m["quote"]})
             out.append({"id": f"canvas-undated-{aid}", "title": a.get("name") or "(untitled)", "course": course,
                         "points": points, "hints": sorted(hints, key=lambda h: h["due"])[:2],
+                        "upload": uploads_on_canvas(a),
                         "url": a.get("html_url") or (urllib.parse.urljoin(base_url, f"/courses/{c['id']}/assignments/{aid}")
                                                     if aid else "")})
-    return sorted(out, key=lambda u: (-u["points"], u["course"], u["title"]))
+    return sorted(out, key=lambda u: (not u["upload"], -u["points"], u["course"], u["title"]))
