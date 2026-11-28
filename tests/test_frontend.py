@@ -101,6 +101,73 @@ def test_a_canvas_task_whose_time_passes_while_the_page_is_open_becomes_overdue(
     assert after["counters"] == ["due_3d=0", "due_today=0", "overdue=1"] and "bg-red" in after["avatar"]
 
 
+# the to-do list as it stands: [{heading, ids: [the rows under it]}], headings that are hidden left out
+GROUPS = ("(function () { var out = [], cur = null; [].forEach.call(document.querySelector('#todo .list-group').children, function (e) {"
+          " if (e.classList.contains('list-group-header')) { cur = e.hidden ? null : {heading: e.textContent, ids: []}; if (cur) out.push(cur); }"
+          " else if (cur) cur.ids.push(e.dataset.id); }); return out; })()")
+
+
+def groups_canvas(now):
+    return FakeCanvas(planner=[item(1, 1001, "Old", now - timedelta(days=1)), item(2, 1001, "Quiz", now + timedelta(hours=2)),
+                               item(3, 1001, "Essay", now + timedelta(hours=20)), item(4, 1001, "Lab", now + timedelta(hours=30))])
+
+
+@needs_chrome
+@pytest.mark.parametrize("lang", ["zh", "en"])
+def test_a_task_that_passes_its_time_moves_to_the_overdue_group_like_a_rebuild_would_put_it(build, tmp_path, lang):
+    """The counter said "overdue 2" while the list still said "overdue 1" and the quiz sat under "today": the row moves into
+    the overdue group (in due order), the day heading counts again and disappears when it is empty. Compared with a page
+    built at that later minute, so the script and the server cannot drift apart."""
+    now = pt("2026-10-09 12:00")
+    later = now + timedelta(hours=3)
+    page = build(now, groups_canvas(now), config=PLAIN, lang=lang)
+    served = run_page(build(later, groups_canvas(now), config=PLAIN, lang=lang), tmp_path, later, GROUPS)
+    assert [g["ids"] for g in served] == [["canvas-assignment-1", "canvas-assignment-2"], ["canvas-assignment-3", "canvas-assignment-4"]]
+    before = run_page(page, tmp_path, now, GROUPS)
+    assert [g["ids"] for g in before] == [["canvas-assignment-1"], ["canvas-assignment-2"], ["canvas-assignment-3", "canvas-assignment-4"]]
+    got = run_page(page, tmp_path, now, GROUPS, steps=[(1500, f"jump({3 * HOUR})")])
+    assert got == served                                                           # the same headings, counts and rows
+
+
+@needs_chrome
+def test_the_overdue_heading_appears_when_the_first_task_passes_its_time_and_the_row_gets_its_date(build, tmp_path):
+    now = pt("2026-10-09 12:00")
+    page = build(now, FakeCanvas(planner=[item(2, 1001, "Quiz", now + timedelta(hours=2))]), config=PLAIN)
+    probe = f"({{groups: {GROUPS}, when: document.querySelector('.task .when') && document.querySelector('.task').textContent}})"
+    assert run_page(page, tmp_path, now, probe)["groups"][0]["ids"] == ["canvas-assignment-2"]
+    got = run_page(page, tmp_path, now, probe, steps=[(1500, f"jump({3 * HOUR})")])
+    assert [(g["heading"], g["ids"]) for g in got["groups"]] == [("逾期未交 · 1", ["canvas-assignment-2"])]
+    assert "10/9 周五 14:00" in got["when"]                                         # under an overdue heading a row says the date, not only the time
+
+
+@needs_chrome
+def test_a_row_with_the_focus_waits_to_move_until_the_focus_leaves(build, tmp_path):
+    """Moving the row under the finger or the cursor would drop the focus (and a tap in progress)."""
+    now = pt("2026-10-09 12:00")
+    page = build(now, groups_canvas(now), config=PLAIN)
+    focus = "document.querySelector('[data-id=canvas-assignment-2] .tick').focus()"
+    held = run_page(page, tmp_path, now, GROUPS, steps=[(1000, focus), (1500, f"jump({3 * HOUR})")])
+    assert [g["ids"] for g in held] == [["canvas-assignment-1"], ["canvas-assignment-2"], ["canvas-assignment-3", "canvas-assignment-4"]]
+    freed = run_page(page, tmp_path, now, GROUPS, steps=[(1000, focus), (1500, f"jump({3 * HOUR})"), (2200, "document.activeElement.blur()")])
+    assert [g["ids"] for g in freed] == [["canvas-assignment-1", "canvas-assignment-2"], ["canvas-assignment-3", "canvas-assignment-4"]]
+
+
+@needs_chrome
+def test_off_canvas_work_stays_under_its_day_when_its_time_passes(build, tmp_path):
+    now = pt("2026-10-09 20:00")                       # the Friday homework is due at 23:59 and is not on Canvas
+    page = build(now, FakeCanvas())
+    got = run_page(page, tmp_path, now, GROUPS, steps=[(1500, f"jump({5 * HOUR})")])
+    assert got[0]["ids"] == ["HW-DEMO 002A-2026-10-09"] and "逾期" not in got[0]["heading"]      # still the first group, still under its day
+
+
+@needs_chrome
+def test_a_snapshot_page_keeps_its_groups(build, tmp_path):
+    now = pt("2026-10-09 12:00")
+    page = build(now, groups_canvas(now), config=PLAIN)
+    got = run_page(page, tmp_path, now, GROUPS, steps=[(1500, f"jump({3 * HOUR})")], name="archive/2026-10-09.html")
+    assert [g["ids"] for g in got] == [["canvas-assignment-1"], ["canvas-assignment-2"], ["canvas-assignment-3", "canvas-assignment-4"]]
+
+
 @needs_chrome
 def test_off_canvas_work_past_its_time_is_counted_nowhere(build, tmp_path):
     """The weekly homework site is not Canvas: the server never calls it overdue (it leaves the list 12 h after its time),

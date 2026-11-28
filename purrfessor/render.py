@@ -91,11 +91,20 @@ def expandable(text: str, cls: str = "") -> str:
             f'{esc(text)}</div>')
 
 
+def group_header(fmt: str, n: int, key: str, cls: str = "") -> str:
+    """A heading of the to-do list. `fmt` is plain text with {n} where the count goes: the page script writes the new
+    count into it when a row moves to another group, and hides the heading at 0."""
+    text, hidden, cls = fmt.replace("{n}", str(n)), "" if n else " hidden", f"list-group-header {cls}".strip()
+    return f'<div class="{cls}" data-group="{esc(key)}" data-fmt="{esc(fmt)}"{hidden}>{esc(text)}</div>'
+
+
 def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") -> str:
     color = colors.get(task.course, "secondary")
     # What the row says about when: the day heading above a "soon" row already says the day, so only the time; every other
     # row has no such heading ("overdue", "later", "done"), so it gets the date ("10/5 Mon 12:30", not "Monday 12:30").
     when = f"{task.due:%H:%M}" if state == "soon" else t.when(task.due)
+    if state == "soon" and not task.manual:     # if its time passes while the page is open the script moves the row to "overdue": with the date
+        when = f'<span class="when" data-full="{esc(t.when(task.due))}">{when}</span>'
     text = [esc(task.source if task.manual and task.source != "announcement" else t.kind(task.kind))]
     if task.points:
         text.append(esc(t("pts", p=f"{task.points:g}")))
@@ -441,18 +450,16 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
              f'<div class="card-footer text-secondary small"><i class="ti ti-arrow-right"></i> {t("tomorrow", items=tmr_html)}</div>'
              f'</section></div>')
 
-    body = []
-    if overdue:
-        body.append(f'<div class="list-group-header text-danger">{t("overdue_group", n=len(overdue))}</div>')
-        body += [task_html(x, now, colors, t, "overdue") for x in overdue]
+    # The "overdue" heading is always there (hidden while empty): the page script moves a row under it when its time passes.
+    body = [group_header(t("overdue_group", n="{n}"), len(overdue), "overdue", "text-danger")]
+    body += [task_html(x, now, colors, t, "overdue") for x in overdue]
     groups: dict[date, list[Task]] = {}
     for x in soon:
         groups.setdefault(x.due.date(), []).append(x)
     for day, xs in groups.items():
-        body.append(f'<div class="list-group-header{" text-primary" if day == today else ""}">'
-                    f'{esc(t.day_heading(day, today))} · {len(xs)}</div>')
+        body.append(group_header(f'{t.day_heading(day, today)} · {{n}}', len(xs), day.isoformat(), "text-primary" if day == today else ""))
         body += [task_html(x, now, colors, t, "soon") for x in xs]
-    if not body:
+    if not (overdue or soon):
         body.append(f'<div class="list-group-item text-secondary">{t("nothing_due")}</div>')
     extra = ""
     if later:

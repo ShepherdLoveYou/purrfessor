@@ -22,12 +22,17 @@ def meta(block: str) -> str:
     return re.search(r'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">(.*?)</div>', block, re.S).group(1)
 
 
+def when(full: str, shown: str) -> str:
+    """The time of a Canvas row under a day heading: the page script swaps in the full date if the row becomes overdue."""
+    return f'<span class="when" data-full="{full}">{shown}</span>'
+
+
 def test_no_text_in_the_meta_line_starts_or_ends_with_a_dot(build):
     """The line is a flex row: a text node that began with "· " showed as a lone dot at the start of a wrapped line."""
     canvas = FakeCanvas(planner=[item(1, 1001, "Reading", pt("2026-10-10 23:59"), points=5, feedback=True)])
     block = meta(row(build(NOW, canvas), "canvas-assignment-1"))
-    assert not re.search(r">\s*·|·\s*<", block), block
-    assert re.fullmatch(r'<span class="badge bg-\w+-lt">TEST 101</span><span>作业 · 5 分 · 23:59</span>'
+    assert not re.search(r">\s*·|·\s*<", re.sub(r'<span class="when"[^>]*>(.*?)</span>', r"\1", block)), block   # (the time's own span is not a text node)
+    assert re.fullmatch(r'<span class="badge bg-\w+-lt">TEST 101</span><span>作业 · 5 分 · ' + re.escape(when("10/10 周六 23:59", "23:59")) + r'</span>'
                         r'<a class="badge bg-blue-lt" href="[^"]*" target="_blank" rel="noopener">.*</a>', block, re.S), block
 
 
@@ -35,8 +40,8 @@ def test_a_row_under_a_day_heading_says_only_the_time(build):
     canvas = FakeCanvas(planner=[item(1, 1001, "Reading", pt("2026-10-10 23:59")), item(2, 1001, "Today", pt("2026-10-09 18:00"))])
     page = build(NOW, canvas)
     assert "明天 · 10/10 周六 · 1" in page.html and "今天 · 10/9 周五" in page.html          # the headings say the day
-    assert "<span>作业 · 10 分 · 23:59</span>" in row(page, "canvas-assignment-1")
-    assert "<span>作业 · 10 分 · 18:00</span>" in row(page, "canvas-assignment-2")
+    assert f"<span>作业 · 10 分 · {when('10/10 周六 23:59', '23:59')}</span>" in row(page, "canvas-assignment-1")
+    assert f"<span>作业 · 10 分 · {when('10/9 周五 18:00', '18:00')}</span>" in row(page, "canvas-assignment-2")
     assert "明天 23:59" not in page.html and "今天 18:00" not in page.html
 
 
@@ -54,7 +59,7 @@ def test_rows_without_a_day_heading_say_the_date(build):
 def test_english_rows_have_no_chinese(build):
     canvas = FakeCanvas(planner=[item(1, 1001, "Essay", pt("2026-10-10 23:59")), item(2, 1001, "Old", pt("2026-10-05 11:00"), missing=True)])
     page = build(NOW, canvas, lang="en")
-    assert "<span>Assignment · 10 pts · 23:59</span>" in row(page, "canvas-assignment-1")
+    assert f"<span>Assignment · 10 pts · {when('Sat 10/10 23:59', '23:59')}</span>" in row(page, "canvas-assignment-1")
     assert "<span>Assignment · 10 pts · Mon 10/5 11:00</span>" in row(page, "canvas-assignment-2")
     assert not re.search(r"[一-鿿]", row(page, "canvas-assignment-1") + row(page, "canvas-assignment-2"))
 

@@ -265,9 +265,35 @@
     var av = document.querySelector('[data-stat="overdue"]'); av = av && av.closest(".row").querySelector(".avatar");
     if (av) { av.classList.toggle("bg-red", n.overdue > 0); av.classList.toggle("bg-green", n.overdue === 0); }
   }
+  // A Canvas task whose time passes while the page is open leaves its day for the "overdue" group, with its date: where a
+  // rebuild would put it, so the list agrees with the counters. The headings count again, an empty one hides. A row that
+  // has the focus waits for the next second, so a tap or a key press is not lost to the move. A snapshot page stays as built.
+  function regroup(now) {
+    if (snap) return;
+    var list = document.querySelector("#todo .list-group"), over = list && list.querySelector('[data-group="overdue"]'), moved = false;
+    if (!over) return;
+    list.querySelectorAll('.task[data-state="soon"]:not([data-manual])').forEach(function (li) {
+      var due = new Date(li.dataset.due);
+      if (due >= now || li.contains(document.activeElement)) return;
+      var w = li.querySelector(".when"); if (w) w.textContent = w.dataset.full;
+      li.dataset.state = "overdue";
+      var at = over.nextElementSibling;       // behind the rows that are already there, in due order
+      while (at && at.classList.contains("task") && new Date(at.dataset.due) <= due) at = at.nextElementSibling;
+      list.insertBefore(li, at); moved = true;
+    });
+    if (!moved) return;
+    list.querySelectorAll(".list-group-header[data-group]").forEach(function (h) {
+      var n = 0, e = h.nextElementSibling;
+      while (e && !e.classList.contains("list-group-header")) { if (e.classList.contains("task")) n++; e = e.nextElementSibling; }
+      var text = h.dataset.fmt.replace("{n}", n);
+      if (h.textContent !== text) h.textContent = text;
+      h.hidden = n === 0;
+    });
+  }
   function tick() {
     var now = Date.now();
     renderMeme(now);
+    regroup(now);
     renderStats(now);
     document.querySelectorAll(".task[data-due]:not(.done)").forEach(function (li) {
       var ms = new Date(li.dataset.due) - now, b = li.querySelector(".cd"), note = li.querySelector(".lock-note"),
