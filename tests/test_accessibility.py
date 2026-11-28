@@ -1,0 +1,125 @@
+"""Accessibility contracts: a name for every tick box, one h1 and labelled sections, progress bars with values, live
+counters that are not rewritten every second, keyboard-operable previews, calm motion. 无障碍：打勾框有名字、一个 h1、
+区块有标签、进度条有数值、计数器是 live 区域但不会每秒重写、预览可用键盘操作、减少动态效果。"""
+from __future__ import annotations
+
+import re
+from datetime import timedelta
+
+import pytest
+from browser import PLAIN, needs_chrome, run_page
+from conftest import FakeCanvas, announcement, item, pt
+from purrfessor.render import TEMPLATE
+
+CSS = TEMPLATE.read_text(encoding="utf-8")
+NOW = pt("2026-10-09 12:00")
+CJK = re.compile(r"[一-鿿]")
+
+
+def canvas():
+    return FakeCanvas(planner=[item(1, 1001, 'Essay "A" & <B>', pt("2026-10-10 23:59")), item(2, 1001, "Quiz 2", pt("2026-10-11 23:59"))],
+                      announcements=[announcement(5, 1001, "Notice", "<p>Bring your laptop to the lab on Friday, please.</p>", NOW)],
+                      submissions={1001: [{"score": 9, "missing": False, "late": False, "assignment": {"points_possible": 10}}]})
+
+
+@pytest.mark.parametrize("lang,prefix", [("zh", "标记为已完成："), ("en", "Mark as done: ")])
+def test_every_tick_box_names_its_task(build, lang, prefix):
+    page = build(NOW, canvas(), lang=lang, config=PLAIN)          # (the weekly homework would be three boxes with one title)
+    labels = re.findall(r'<input class="form-check-input m-0 tick" type="checkbox" data-key="([^"]+)" aria-label="([^"]*)">', page.html)
+    assert len(labels) >= 2 and len({label for _, label in labels}) == len(labels)      # no two boxes read the same
+    by_key = dict(labels)
+    assert by_key["canvas-assignment-1"] == f"{prefix}Essay &quot;A&quot; &amp; &lt;B&gt;"       # escaped, and the title is in it
+    assert by_key["canvas-assignment-2"] == f"{prefix}Quiz 2"
+    if lang == "en":
+        assert not CJK.search(" ".join(by_key.values()))
+
+
+def test_one_h1_then_h2_sections_each_labelled_by_its_heading(build):
+    page = build(NOW, canvas())
+    assert re.findall(r"<h[1-6][ >]", page.html) == ["<h1 "] + ["<h2 "] * 5            # todo, today, grades, timetable, news
+    sections = re.findall(r'<section id="(\w+)" class="card" aria-labelledby="(\w+-title)">', page.html)
+    assert [sid for sid, _ in sections] == ["todo", "today", "grades", "timetable", "news"]
+    for sid, labelled in sections:
+        assert labelled == f"{sid}-title"
+        assert re.search(rf'<h2 class="card-title" id="{labelled}">', page.html), sid
+
+
+def test_the_brief_and_changes_sections_are_labelled_too(build):
+    from purrfessor import agent
+    page = build(NOW, canvas())
+    assert 'aria-labelledby="brief-title"' not in page.html                       # no brief without the AI: nothing to label
+    prev = build(NOW - timedelta(hours=6), FakeCanvas(planner=[item(2, 1001, "Quiz 2", pt("2026-10-11 23:59"))]))
+    changed = build(NOW, canvas(), prev=prev)
+    assert 'id="changes"' in changed.html and 'aria-labelledby="changes-title"' in changed.html
+    assert '<h2 class="card-title" id="changes-title">' in changed.html and agent is not None
+
+
+def test_every_progress_bar_is_a_progressbar_with_a_value_and_a_name(build):
+    page = build(NOW, canvas())
+    bars = re.findall(r'<div class="progress progress-sm[^"]*" ([^>]*)>', page.html)
+    assert len(bars) == 3                                                            # the term, the year, one graded course
+    for attrs in bars:
+        assert 'role="progressbar"' in attrs and 'aria-valuemin="0"' in attrs and 'aria-valuemax="100"' in attrs, attrs
+        assert re.search(r'aria-valuenow="[\d.]+"', attrs) and re.search(r'aria-label="[^"]+"', attrs), attrs
+    assert re.search(r'aria-label="学期进度：第 2 周，共 10 周" aria-valuenow="\d+"', page.html)
+    assert re.search(r'aria-label="全年进度" aria-valuenow="7\d\.\d"', page.html)                 # 9 October: 78 percent of 2026
+
+
+def test_english_progress_labels_have_no_chinese(build):
+    page = build(NOW, canvas(), lang="en")
+    assert 'aria-label="Term progress: week 2 of 10"' in page.html and 'aria-label="Year progress"' in page.html
+    assert not CJK.search(re.sub(r"喵教授", "", " ".join(re.findall(r'aria-label="([^"]*)"', page.html))))
+
+
+def test_only_the_three_stat_counters_are_live_regions_not_the_timers(build):
+    """The counters change when a task is ticked or a time passes; the countdowns change every second and must stay silent."""
+    page = build(NOW, canvas())
+    live = re.findall(r'<[^>]*aria-live="([^"]*)"[^>]*>', page.html)
+    assert live == ["polite"] * 3
+    for key in ("overdue", "due_today", "due_3d"):
+        assert f'data-stat="{key}" aria-live="polite" aria-atomic="true"' in page.html
+    assert page.html.count("aria-live") == 3
+    timer = re.search(r'<span class="badge [^"]*\bcd">', page.html).group(0)
+    assert "aria-live" not in timer and 'aria-live' not in re.search(r'<div class="h1 my-2 next-big">', page.html).group(0)
+
+
+def test_previews_are_buttons_for_the_keyboard(build):
+    page = build(NOW, canvas())
+    news = page.section("news")
+    assert re.search(r'<div class="text-secondary small mt-2 preview" tabindex="0" role="button" aria-expanded="false">Bring your laptop', news)
+
+
+def test_decorative_status_dots_are_hidden_from_screen_readers(build):
+    page = build(NOW, canvas())
+    dots = re.findall(r'<span class="status-dot[^>]*>', page.html)
+    assert dots and all('aria-hidden="true"' in d for d in dots)
+
+
+def test_motion_and_focus_rules_are_in_the_stylesheet():
+    assert "@media (prefers-reduced-motion: reduce) { .status-dot-animated::before { animation: none !important; } }" in CSS
+    assert ".tick:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }" in CSS
+    assert ".preview:focus-visible { outline: 2px solid var(--ring);" in CSS
+
+
+# ---------------------------------------------------------------- the script
+
+@needs_chrome
+def test_a_counter_is_only_rewritten_when_its_number_changes(build, tmp_path):
+    """The counters are live regions: assigning the same text every second would be announced every second."""
+    page = build(NOW, FakeCanvas(planner=[item(1, 1001, "Quiz", NOW + timedelta(hours=2))]), config=PLAIN)
+    watch = ("window.hits = {}; document.querySelectorAll('[data-stat]').forEach(function (el) { hits[el.dataset.stat] = 0; "
+             "new MutationObserver(function (m) { hits[el.dataset.stat] += m.length; }).observe(el, {childList: true, characterData: true, subtree: true}); });")
+    probe = "({hits: hits, text: [].map.call(document.querySelectorAll('[data-stat]'), function (e) { return e.dataset.stat + '=' + e.textContent; })})"
+    quiet = run_page(page, tmp_path, NOW, probe, [(1100, watch)])
+    assert quiet["hits"] == {"overdue": 0, "due_today": 0, "due_3d": 0}, quiet       # five ticks went by, nothing was rewritten
+    assert sorted(quiet["text"]) == ["due_3d=1", "due_today=1", "overdue=0"]
+
+
+@needs_chrome
+def test_the_year_progress_bar_value_follows_the_clock(build, tmp_path):
+    """The page was built in October but opened on 1 July: the bar and its aria-valuenow say about half a year."""
+    page = build(NOW, canvas())
+    got = run_page(page, tmp_path, pt("2026-07-02 12:00"),
+                   "document.querySelector('.meme-bar').parentNode.getAttribute('aria-valuenow') + '|' + document.querySelector('.meme-bar').style.width")
+    value, width = got.split("|")
+    assert 49.0 <= float(value) <= 50.5 and abs(float(value) - float(width.rstrip("%"))) < 0.1

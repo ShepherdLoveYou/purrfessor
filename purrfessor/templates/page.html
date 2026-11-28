@@ -93,6 +93,8 @@
     cursor: pointer; white-space: pre-line; }
   .preview-2 { -webkit-line-clamp: 2; }
   .preview.open { display: block; }
+  /* The pulsing "unread" dots stand still for people who ask for less motion */
+  @media (prefers-reduced-motion: reduce) { .status-dot-animated::before { animation: none !important; } }
   .preview:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }
   #calendar .deadline { font-weight: 600; }
   /* FullCalendar's forma palette is a blue-black (#030712) in dark mode, darker than the page and the cards around it:
@@ -231,6 +233,7 @@
     document.querySelector(".meme-elapsed").textContent = fill(L.elapsed, { w: weeks, d: days, year: y });
     document.querySelector(".meme-pct").textContent = pct.toFixed(1) + "%";
     document.querySelector(".meme-bar").style.width = pct.toFixed(2) + "%";
+    var bar = document.querySelector(".meme-bar").parentNode; bar.setAttribute("aria-valuenow", pct.toFixed(1));
   }
   // The three task counters ignore what is ticked off. A snapshot page keeps the numbers it was built with.
   function renderStats(now) {
@@ -243,8 +246,8 @@
       if (YMD.format(due) === today) n.due_today++;
       if (due - now <= 2592e5) n.due_3d++;
     });
-    Object.keys(n).forEach(function (k) {
-      var el = document.querySelector('[data-stat="' + k + '"]'); if (el) el.textContent = n[k]; });
+    Object.keys(n).forEach(function (k) {   // only when it changed: these are live regions, a rewrite would be read out again
+      var el = document.querySelector('[data-stat="' + k + '"]'); if (el && el.textContent !== String(n[k])) el.textContent = n[k]; });
     var av = document.querySelector('[data-stat="overdue"]'); av = av && av.closest(".row").querySelector(".avatar");
     if (av) { av.classList.toggle("bg-red", n.overdue > 0); av.classList.toggle("bg-green", n.overdue === 0); }
   }
