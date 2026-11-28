@@ -35,7 +35,8 @@
   /* Small coloured text. Tabler writes it in the plain palette colour on a pale wash of the same colour (2-4:1 for
      green, teal, orange, yellow…; in dark mode purple, blue, pink, red). Mixing the colour toward black (white in dark
      mode) keeps its hue and reaches 4.5:1. tests/test_contrast.py checks every colour against these two numbers. */
-  :root { --tone-ink: #000; --tone-mix: 60%; --tone-mix-hot: 75%; --tick-line: var(--tblr-secondary); --ring: var(--tblr-primary); }
+  :root { --tone-ink: #000; --tone-mix: 60%; --tone-mix-hot: 75%; --tick-line: var(--tblr-secondary); --ring: var(--tblr-primary);
+    --primary-ink: color-mix(in srgb, var(--tblr-blue) var(--tone-mix), var(--tone-ink)); }
   :root[data-bs-theme="dark"] { --tone-ink: #fff; --tone-mix: 60%; --ring: color-mix(in srgb, var(--tblr-primary) 55%, #fff); }
   .badge.bg-red-lt, .text-danger { --tone: var(--tblr-red); }
   .badge.bg-orange-lt { --tone: var(--tblr-orange); }
@@ -116,13 +117,13 @@
   .brief-headline { margin: 0; padding-left: .875rem; border-left: 3px solid var(--tblr-primary);
     font-size: 1.0625rem; font-weight: 600; line-height: 1.7; }
   .brief-num { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%;
-    font-size: .8125rem; font-weight: 700; background: var(--tblr-primary-lt); color: var(--tblr-primary); }
+    font-size: .8125rem; font-weight: 700; background: var(--tblr-primary-lt); color: var(--primary-ink); }
   .brief-step { display: flex; gap: .5rem; align-items: baseline; line-height: 1.6; }
-  .brief-step .ti { color: var(--tblr-primary); flex: none; }
+  .brief-step .ti { color: var(--primary-ink); flex: none; }
   #brief .list-group-item { padding-top: 1rem; padding-bottom: 1rem; }
   .brief-section { display: flex; align-items: center; gap: .5rem; padding: 1.25rem 1.25rem .5rem;
     font-weight: 600; color: var(--tblr-body-color); border-top: 1px solid var(--tblr-border-color); }
-  .brief-section .ti { color: var(--tblr-primary); font-size: 1.125rem; }
+  .brief-section .ti { color: var(--primary-ink); font-size: 1.125rem; }
   /* The wizard-cat meme: caption sits in the blank lower-right area of the image */
   .meme { position: relative; max-width: 560px; aspect-ratio: 1170 / 792; container-type: inline-size;
     background: #fff var(--cat) center / 100% 100% no-repeat; border: 1px solid var(--tblr-border-color);

@@ -117,3 +117,11 @@ def test_the_active_nav_pill_and_the_grey_nav_links_are_mixed_too():
     """The active pill was 3.2:1 in dark mode (Tabler's blue on its own wash); the others use the secondary text colour."""
     assert ".nav-sticky .nav-link.active { --tone: var(--tblr-blue); color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)); }" in CSS
     assert ".nav-sticky .nav-link { color: var(--tblr-secondary-color); }" in CSS
+
+
+def test_the_briefs_numbers_and_icons_use_the_blue_mixed_with_ink():
+    """The AI brief's step numbers were Tabler's blue on its own pale wash (about 2.8:1 in dark mode): the same mix as the
+    blue badge, which test_badge_text_reaches_4_5 covers."""
+    assert "--primary-ink: color-mix(in srgb, var(--tblr-blue) var(--tone-mix), var(--tone-ink))" in CSS
+    for rule in (".brief-num", ".brief-step .ti", ".brief-section .ti"):
+        assert re.search(re.escape(rule) + r" \{[^}]*color: var\(--primary-ink\)", CSS), rule
