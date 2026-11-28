@@ -18,8 +18,9 @@ CHROME = next((p for p in ["/Applications/Google Chrome.app/Contents/MacOS/Googl
                if p and shutil.os.path.exists(p)), None)
 
 
-def render_dom(html: str, tmp_path, size: tuple[int, int] | None = None) -> str:
-    f = tmp_path / "p.html"
+def render_dom(html: str, tmp_path, size: tuple[int, int] | None = None, name: str = "p.html") -> str:
+    f = tmp_path / name
+    f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(html, encoding="utf-8")
     cmd = [CHROME, "--headless=new", "--disable-gpu", f"--user-data-dir={tmp_path / 'ud'}",
            *([f"--window-size={size[0]},{size[1]}"] if size else []),
@@ -59,18 +60,21 @@ def hermetic(page: str) -> str:
     return re.sub(r'<link rel="stylesheet" href="https://[^"]+">|<script src="https://[^"]+"></script>', "", page)
 
 
-def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False, init=""):
+def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False, init="", css="",
+             name="p.html"):
     """Load page.html in Chrome with the clock at `now`; `steps` = [(virtual ms, js)] run in order (the js can call
     jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
-    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own."""
+    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own,
+    `css` is added to the head (a stand-in for the Tabler rules a test needs), `name` is the file name ("archive/2026-10-09.html"
+    makes it a snapshot page)."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
            f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r; document.body.appendChild(out); }}, 3500);')
     doc = page.html if hasattr(page, "html") else page
     doc = doc if cdn else hermetic(doc)
-    doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), (BLOCK_STORAGE if blocked_storage else "") + init), 1)
+    doc = doc.replace("<head>", f"<head><style>{css}</style>" + CLOCK % (now.isoformat(), (BLOCK_STORAGE if blocked_storage else "") + init), 1)
     doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
-    dom = render_dom(doc, tmp_path, size)
+    dom = render_dom(doc, tmp_path, size, name)
     found = re.search(r'<pre id="probe-result">(.*?)</pre>', dom, re.S)
     assert found, "the probe never ran: " + dom[-600:]
     return json.loads(htmllib.unescape(found.group(1)))

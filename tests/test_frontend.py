@@ -60,3 +60,91 @@ def test_phone_header_keeps_the_title_on_one_line_and_never_scrolls_sideways(bui
     assert got["lines"] == 1, got
     assert got["sw"] <= got["cw"], got                              # compared with clientWidth: a classic scrollbar takes 15 px
     assert got["nav"][0] >= 0 and got["nav"][1] <= got["cw"], got   # the nav is as wide as the screen, not wider
+
+
+# ---------------------------------------------------------------- the counters follow the clock and the ticks
+
+COUNTERS = "[].map.call(document.querySelectorAll('[data-stat]'), function (e) { return e.dataset.stat + '=' + e.textContent; }).sort()"
+HOUR = 3600 * 1000
+
+
+@needs_chrome
+def test_a_canvas_task_whose_time_passes_while_the_page_is_open_becomes_overdue(build, tmp_path):
+    """Built with the work still ahead (due today, in 3 days), opened and left open past its due time: it moves from
+    "due today / due in 3 days" to "overdue" without a reload, and the red / green avatar follows."""
+    now = pt("2026-10-09 12:00")
+    page = build(now, FakeCanvas(planner=[item(1, 1001, "Quiz", now + timedelta(hours=2))]), config=PLAIN)
+    assert page.stats["今天截止"] == 1 and page.stats["逾期未交"] == 0
+    probe = f"({{counters: {COUNTERS}, avatar: document.querySelector('[data-stat=overdue]').closest('.row').querySelector('.avatar').className}})"
+    before = run_page(page, tmp_path, now, probe)
+    assert before["counters"] == ["due_3d=1", "due_today=1", "overdue=0"] and "bg-green" in before["avatar"]
+    after = run_page(page, tmp_path, now, probe, steps=[(1500, f"jump({3 * HOUR})")])
+    assert after["counters"] == ["due_3d=0", "due_today=0", "overdue=1"] and "bg-red" in after["avatar"]
+
+
+@needs_chrome
+def test_off_canvas_work_past_its_time_is_counted_nowhere(build, tmp_path):
+    """The weekly homework site is not Canvas: the server never calls it overdue (it leaves the list 12 h after its time),
+    so the script does not either."""
+    now = pt("2026-10-09 20:00")                       # the Friday homework is due at 23:59
+    page = build(now, FakeCanvas())
+    assert page.state("HW-DEMO 002A-2026-10-09") == "soon" and 'data-manual="1"' in page.html
+    probe = f"({COUNTERS})"
+    assert run_page(page, tmp_path, now, probe) == ["due_3d=1", "due_today=1", "overdue=0"]
+    assert run_page(page, tmp_path, now, probe, steps=[(1500, f"jump({5 * HOUR})")]) == ["due_3d=0", "due_today=0", "overdue=0"]
+
+
+def test_the_server_counts_the_same_way_for_off_canvas_work_past_its_time(build):
+    """Built an hour after the homework's due time: still on the list (12 h), but in no counter."""
+    page = build(pt("2026-10-10 00:59"), FakeCanvas())
+    assert page.state("HW-DEMO 002A-2026-10-09") == "soon"
+    assert page.stats["今天截止"] == 0 and page.stats["3 天内截止"] == 0 and page.stats["逾期未交"] == 0
+
+
+@needs_chrome
+def test_a_snapshot_page_keeps_the_numbers_it_was_built_with(build, tmp_path):
+    now = pt("2026-10-09 12:00")
+    page = build(now, FakeCanvas(planner=[item(1, 1001, "Quiz", now + timedelta(hours=2))]), config=PLAIN)
+    probe = f"({COUNTERS})"
+    frozen = run_page(page, tmp_path, now, probe, steps=[(1500, f"jump({3 * HOUR})")], name="archive/2026-10-09.html")
+    assert frozen == ["due_3d=1", "due_today=1", "overdue=0"]
+
+
+@needs_chrome
+def test_ticking_a_task_takes_it_out_of_the_counters_and_the_next_card(build, tmp_path):
+    now = pt("2026-10-09 12:00")
+    canvas = FakeCanvas(planner=[item(1, 1001, "First", now + timedelta(hours=2)), item(2, 1001, "Second", now + timedelta(hours=30))])
+    page = build(now, canvas, config=PLAIN)
+    probe = f"({{counters: {COUNTERS}, next: document.querySelector('#next-due .next-title').textContent, " \
+            "struck: document.querySelector('.tick').closest('.task').classList.contains('checked')})"
+    assert run_page(page, tmp_path, now, probe) == {"counters": ["due_3d=2", "due_today=1", "overdue=0"], "next": "First", "struck": False}
+    got = run_page(page, tmp_path, now, probe, steps=[(1500, "document.querySelector('.tick').click()")])
+    assert got == {"counters": ["due_3d=1", "due_today=0", "overdue=0"], "next": "Second", "struck": True}
+
+
+@needs_chrome
+def test_ticks_stay_for_the_visit_when_the_device_store_throws(build, tmp_path):
+    """localStorage can be blocked: the strike-through and the "next deadline" card must still agree."""
+    now = pt("2026-10-09 12:00")
+    canvas = FakeCanvas(planner=[item(1, 1001, "First", now + timedelta(hours=2)), item(2, 1001, "Second", now + timedelta(hours=30))])
+    page = build(now, canvas, config=PLAIN)
+    probe = ("({store: (function () { try { return typeof localStorage.length; } catch (x) { return 'blocked'; } })(),"
+             " next: document.querySelector('#next-due .next-title').textContent,"
+             " struck: document.querySelector('.tick').closest('.task').classList.contains('checked'),"
+             f" checked: document.querySelector('.tick').checked, counters: {COUNTERS}}})")
+    got = run_page(page, tmp_path, now, probe, steps=[(1500, "document.querySelector('.tick').click()")], blocked_storage=True)
+    assert got == {"store": "blocked", "next": "Second", "struck": True, "checked": True, "counters": ["due_3d=1", "due_today=0", "overdue=0"]}
+    # and unticking brings it back
+    back = run_page(page, tmp_path, now, probe, blocked_storage=True,
+                    steps=[(1500, "document.querySelector('.tick').click()"), (2200, "document.querySelector('.tick').click()")])
+    assert back["next"] == "First" and back["struck"] is False
+
+
+@needs_chrome
+def test_a_tick_made_in_another_tab_shows_here(build, tmp_path):
+    now = pt("2026-10-09 12:00")
+    canvas = FakeCanvas(planner=[item(1, 1001, "First", now + timedelta(hours=2)), item(2, 1001, "Second", now + timedelta(hours=30))])
+    page = build(now, canvas, config=PLAIN)
+    probe = "({next: document.querySelector('#next-due .next-title').textContent, checked: document.querySelector('.tick').checked})"
+    event = "window.dispatchEvent(new StorageEvent('storage', {key: 'purrfessor-done:canvas-assignment-1', newValue: '1'}))"
+    assert run_page(page, tmp_path, now, probe, steps=[(1500, event)]) == {"next": "Second", "checked": True}

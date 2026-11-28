@@ -316,7 +316,7 @@ def test_every_unfinished_task_can_be_ticked(build):
     assert 'data-key="canvas-assignment-7"' in page.html
     assert 'data-key="canvas-assignment-8"' not in page.html
     # the "next deadline" card skips a ticked task: the script reads the same device-local key the box writes
-    assert page.html.count('purrfessor-done:') >= 2
+    assert page.html.count('purrfessor-done:') == 1 and "DONE + box.dataset.key" in page.html and "ticked[DONE + x.id]" in page.html
 
 
 def test_graded_without_submission_is_done(build):

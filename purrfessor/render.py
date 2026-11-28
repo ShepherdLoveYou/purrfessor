@@ -117,10 +117,11 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
     else:
         badge = f'<span class="badge {URGENCY_BADGE[urgency(task.due - now)]} cd">{esc(t.countdown(task.due - now))}</span>'
     lock = f' data-lock="{window.isoformat()}"' if window else ""
+    manual = ' data-manual="1"' if task.manual else ""     # not on Canvas: the page script never calls it overdue
     lock_note = (f'<div class="text-secondary small mt-1 lock-note"><i class="ti ti-lock-open"></i> '
                  f'{esc(t("late_until", when=t.when(window)))}</div>' if window else "")
     return (f'<div class="list-group-item task{" done" if task.done else ""}" data-due="{task.due.isoformat()}" '
-            f'data-id="{esc(task.id)}" data-state="{state}"{lock}>'
+            f'data-id="{esc(task.id)}" data-state="{state}"{lock}{manual}>'
             f'<div class="row align-items-center g-3"><div class="col-auto">{lead}</div>'
             f'<div class="col min-w-0"><div class="fw-medium title">{link(task.display_title, task.url)}</div>{original}'
             f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">{meta}</div>'
@@ -413,8 +414,9 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
 
     p.append('<div class="row row-cards">')
     p.append(stat_card("school", "blue", len(today_cls), t("stat_classes"), "#today"))
-    p.append(stat_card("alarm", "red", sum(x.due.date() == today for x in pending), t("stat_due_today"), "#todo", "due_today"))
-    p.append(stat_card("hourglass-high", "orange", sum(x.due - now <= timedelta(days=3) for x in pending),
+    ahead = [x for x in pending if x.due >= now]     # off-Canvas work stays 12 h after its time, counted nowhere (as in the script)
+    p.append(stat_card("alarm", "red", sum(x.due.date() == today for x in ahead), t("stat_due_today"), "#todo", "due_today"))
+    p.append(stat_card("hourglass-high", "orange", sum(x.due - now <= timedelta(days=3) for x in ahead),
                        t("stat_due_3d"), "#todo", "due_3d"))
     p.append(stat_card("alert-triangle", "red" if overdue else "green", len(overdue), t("stat_overdue"), "#todo", "overdue"))
     p.append(next_card("next-class", t("next_class"), "clock", t))

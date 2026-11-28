@@ -162,6 +162,9 @@
   var ls = null; try { ls = window.localStorage; } catch (e) {}
   function get(k) { try { return ls && ls.getItem(k); } catch (e) { return null; } }
   function put(k, v) { try { v ? ls.setItem(k, "1") : ls.removeItem(k); } catch (e) {} }
+  // What is ticked, as this visit knows it. The device store can be missing or refuse writes (blocked site data, some
+  // in-app browsers): the tick still strikes the task through and drops it from "next deadline", for this visit.
+  var DONE = "purrfessor-done:", ticked = {};
   function fill(s, o) { return String(s || "").replace(/\{(\w+)\}/g, function (_, k) { return o[k] != null ? o[k] : ""; }); }
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   // Every clock time is shown in the school's time zone, wherever the page is opened.
@@ -216,7 +219,7 @@
       setNext("next-class", c.color, a > 0 ? fill(L.startsIn, { t: fmt(a) }) : fill(L.inClass, { t: fmt(new Date(c.end) - now) }),
         c.course + " " + c.kind, "", relDay(c.start) + " " + hhmm(c.start) + "–" + hhmm(c.end) + (c.where ? " · " + c.where : ""));
     } else setNext("next-class", "", "—", L.noMore, "", "");
-    var t = (D.tasks || []).filter(function (x) { return new Date(x.due) > now && !get("purrfessor-done:" + x.id); })[0];
+    var t = (D.tasks || []).filter(function (x) { return new Date(x.due) > now && !ticked[DONE + x.id]; })[0];
     if (t) setNext("next-due", t.color, fill(L.left, { t: fmt(new Date(t.due) - now) }), t.title, t.url,
       t.course + " · " + relDay(t.due) + " " + hhmm(t.due) + " " + L.due, urgency(new Date(t.due) - now));
     else setNext("next-due", "", "—", L.nothingDue, "", "");
@@ -235,16 +238,19 @@
     document.querySelector(".meme-bar").style.width = pct.toFixed(2) + "%";
     var bar = document.querySelector(".meme-bar").parentNode; bar.setAttribute("aria-valuenow", pct.toFixed(1));
   }
-  // The three task counters ignore what is ticked off. A snapshot page keeps the numbers it was built with.
+  // The three task counters leave out what is ticked off, and follow the clock while the page is open: a Canvas task
+  // whose time passes moves from "due today / in 3 days" to "overdue"; off-Canvas work (data-manual) past its time is
+  // counted nowhere (the server never calls it overdue either). A snapshot page keeps the numbers it was built with.
   function renderStats(now) {
     if (snap) return;
     var n = { overdue: 0, due_today: 0, due_3d: 0 }, today = YMD.format(new Date(now));
     document.querySelectorAll(".task[data-state]").forEach(function (li) {
-      var st = li.dataset.state, due = new Date(li.dataset.due);
+      var st = li.dataset.state, due = new Date(li.dataset.due), ms = due - now;
       if (st === "done" || li.classList.contains("checked")) return;
-      if (st === "overdue") { n.overdue++; return; }
+      if (st === "overdue" || (ms < 0 && !li.dataset.manual)) { n.overdue++; return; }
+      if (ms < 0) return;
       if (YMD.format(due) === today) n.due_today++;
-      if (due - now <= 2592e5) n.due_3d++;
+      if (ms <= 2592e5) n.due_3d++;
     });
     Object.keys(n).forEach(function (k) {   // only when it changed: these are live regions, a rewrite would be read out again
       var el = document.querySelector('[data-stat="' + k + '"]'); if (el && el.textContent !== String(n[k])) el.textContent = n[k]; });
@@ -276,12 +282,17 @@
   }
 
   // Manual tick for any unfinished task (Canvas sync can lag or fail): stored on this device only
+  var show = {};
   document.querySelectorAll(".tick").forEach(function (box) {
-    var li = box.closest(".task"), key = "purrfessor-done:" + box.dataset.key;
-    box.checked = !!get(key); li.classList.toggle("checked", box.checked);
+    var li = box.closest(".task"), key = DONE + box.dataset.key;
+    show[key] = function (on) { ticked[key] = box.checked = on; li.classList.toggle("checked", on); };
+    show[key](!!get(key));
     box.addEventListener("change", function () {
-      li.classList.toggle("checked", box.checked); put(key, box.checked); renderNext(Date.now()); renderStats(Date.now());
+      show[key](box.checked); put(key, box.checked); renderNext(Date.now()); renderStats(Date.now());
     });
+  });
+  window.addEventListener("storage", function (e) {       // the same page ticked in another tab
+    if (show[e.key]) { show[e.key](!!e.newValue); renderNext(Date.now()); renderStats(Date.now()); }
   });
   // Clamped text opens on a tap, and on Enter / Space for keyboard and screen-reader users
   document.querySelectorAll(".preview").forEach(function (p) {
