@@ -7,6 +7,7 @@ from __future__ import annotations
 import html as htmllib
 import json
 import re
+import urllib.request
 from datetime import timedelta
 
 import pytest
@@ -14,6 +15,17 @@ from conftest import CONFIG, FakeCanvas, item, pt
 from test_today import CHROME, render_dom
 
 needs_chrome = pytest.mark.skipif(CHROME is None, reason="no Chrome")
+
+
+def cdn_reachable() -> bool:
+    try:
+        urllib.request.urlopen("https://cdn.jsdelivr.net/npm/@tabler/core@1.6.1/dist/css/tabler.min.css", timeout=5).close()
+        return True
+    except OSError:
+        return False
+
+
+needs_cdn = pytest.mark.skipif(not cdn_reachable(), reason="no network: layout tests need Tabler's real CSS")
 PLAIN = CONFIG.split("[[recurring]]")[0]      # no weekly homework task to get in the way of "the next deadline"
 
 CLOCK = """<script>(function () {
@@ -31,13 +43,15 @@ def hermetic(page: str) -> str:
     return re.sub(r'<link rel="stylesheet" href="https://[^"]+">|<script src="https://[^"]+"></script>', "", page)
 
 
-def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None):
+def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False, size=None, cdn=False):
     """Load page.html in Chrome with the clock at `now`; `steps` = [(virtual ms, js)] run in order (the js can call
-    jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON."""
+    jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
+    cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS)."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
            f'var p = document.createElement("pre"); p.id = "probe-result"; p.textContent = r; document.body.appendChild(p); }}, 3500);')
-    doc = hermetic(page.html if hasattr(page, "html") else page)
+    doc = page.html if hasattr(page, "html") else page
+    doc = doc if cdn else hermetic(doc)
     doc = doc.replace("<head>", "<head>" + CLOCK % (now.isoformat(), BLOCK_STORAGE if blocked_storage else ""), 1)
     doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
     dom = render_dom(doc, tmp_path, size)
@@ -73,3 +87,25 @@ def test_next_deadline_tone_follows_the_clock_and_clears(build, tmp_path):
     page = build(now, FakeCanvas(planner=[item(1, 1001, "Essay", now + timedelta(hours=40))]), config=PLAIN)
     got = run_page(page, tmp_path, now, NEXT, steps=[(1500, f"jump({20 * 3600 * 1000})")])
     assert "tone-red" in got["big"].split() and "tone-orange" not in got["big"].split()
+
+
+# ---------------------------------------------------------------- the phone header
+
+LAYOUT = ("({inner: innerWidth, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth,"
+          " lines: Math.round(document.querySelector('h1.page-title').getBoundingClientRect().height /"
+          " parseFloat(getComputedStyle(document.querySelector('h1.page-title')).lineHeight)),"
+          " nav: [document.querySelector('.nav-sticky').getBoundingClientRect().left, document.querySelector('.nav-sticky').getBoundingClientRect().right]})")
+
+
+@needs_chrome
+@needs_cdn
+@pytest.mark.parametrize("lang", ["zh", "en"])
+@pytest.mark.parametrize("width", [360, 375, 390, 412])
+def test_phone_header_keeps_the_title_on_one_line_and_never_scrolls_sideways(build, tmp_path, width, lang):
+    """The sticky nav used to be 4 px wider than the screen on a phone, and the term progress squeezed the title into two lines."""
+    now = pt("2026-10-09 12:00")
+    page = build(now, FakeCanvas(planner=[item(1, 1001, "Essay", now + timedelta(hours=6))]), lang=lang)
+    got = run_page(page, tmp_path, now, LAYOUT, size=(width, 900), cdn=True)
+    assert got["lines"] == 1, got
+    assert got["sw"] <= got["cw"], got                              # compared with clientWidth: a classic scrollbar takes 15 px
+    assert got["nav"][0] >= 0 and got["nav"][1] <= got["cw"], got   # the nav is as wide as the screen, not wider

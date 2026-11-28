@@ -312,7 +312,7 @@ def changes_card(changes: dict, colors: dict, t: T) -> str:
                     f'<span class="badge bg-{c}-lt"><i class="ti ti-{i}"></i> {esc(lbl)}</span></div>'
                     f'<div class="col min-w-0 small">{body}</div></div></div>' for i, c, lbl, body in rows)
     return (f'<div class="col-12"><section id="changes" class="card"><div class="card-header"><h3 class="card-title">'
-            f'<i class="ti ti-arrows-diff me-1"></i>{t("changes")}</h3><div class="card-actions text-secondary small">'
+            f'<i class="ti ti-arrows-diff me-1"></i>{t("changes")}</h3><div class="card-actions card-note text-secondary small">'
             f'{esc(since)}</div></div><div class="list-group list-group-flush">{items}</div></section></div>')
 
 
@@ -334,7 +334,7 @@ def grades_card(grades: list[dict], colors: dict, t: T) -> str:
                     f'<div class="col-6 col-sm-4"><div class="text-secondary small">{t("grade_rate")}</div>{esc(rate)}</div>'
                     f'<div class="col-12 col-sm-2 text-sm-end">{flags}</div></div></div>')
     return (f'<div class="col-12"><section id="grades" class="card"><div class="card-header"><h3 class="card-title">'
-            f'<i class="ti ti-chart-bar me-1"></i>{t("grades")}</h3><div class="card-actions text-secondary small">'
+            f'<i class="ti ti-chart-bar me-1"></i>{t("grades")}</h3><div class="card-actions card-note text-secondary small">'
             f'{t("grades_aside")}</div></div><div class="list-group list-group-flush">{"".join(rows)}</div></section></div>')
 
 
@@ -363,9 +363,9 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
     p = [f'<div class="page-header"><div class="row g-2 align-items-center">'
          f'<div class="col-auto"><img class="brand-logo" src="data:image/svg+xml,{logo}" alt="" width="52" height="52"></div>'
          f'<div class="col">'
-         f'<div class="page-pretitle" id="greet">&nbsp;</div><h2 class="page-title">{esc(t("title", name=S.name))}</h2>'
+         f'<div class="page-pretitle" id="greet">&nbsp;</div><h1 class="page-title">{esc(t("title", name=S.name))}</h1>'
          f'<div class="text-secondary mt-1">{esc(t.long(today))} · {esc(S.term.get("name", ""))} · {esc(S.school)}</div></div>'
-         f'<div class="col-auto"><div class="text-end small text-secondary mb-1">{t("week", n=week, total=total_weeks)}</div>'
+         f'<div class="col-auto term-col"><div class="term-week text-end small text-secondary">{t("week", n=week, total=total_weeks)}</div>'
          f'<div class="progress progress-sm term-progress"><div class="progress-bar" style="width:{term_pct}%"></div></div>'
          f'</div></div></div>']
     p += [f'<div class="alert alert-warning mt-3 mb-0" role="alert"><i class="ti ti-alert-triangle"></i> {esc(w)}</div>'
@@ -425,7 +425,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
         extra += (f'<details class="card-footer"><summary class="text-success fw-medium">{t("done_n", n=len(done))}</summary>'
                   f'<div class="list-group list-group-flush mt-2">{"".join(task_html(x, now, colors, t, "done") for x in done)}</div></details>')
     p.append(f'<div class="col-12"><section id="todo" class="card"><div class="card-header"><h3 class="card-title">'
-             f'<i class="ti ti-checklist me-1"></i>{t("todo_title")}</h3><div class="card-actions text-secondary small">'
+             f'<i class="ti ti-checklist me-1"></i>{t("todo_title")}</h3><div class="card-actions card-note text-secondary small">'
              f'{t("todo_aside")}</div></div><div class="list-group list-group-flush">{"".join(body)}</div>{extra}</section></div>')
     p.append(today_html)   # what is due comes first; today's classes sit right below it
 
@@ -436,7 +436,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
         names = ("、" if t.lang == "zh" else ", ").join(sorted({f'{c["course"]} {label(c, t)}' for c in online}))
         online_note = f'<div class="card-footer text-secondary small"><i class="ti ti-world"></i> {esc(t("online_note", names=names))}</div>'
     p.append(f'<div class="col-12"><section id="timetable" class="card"><div class="card-header"><h3 class="card-title">'
-             f'<i class="ti ti-calendar-week me-1"></i>{t("timetable")}</h3><div class="card-actions text-secondary small">'
+             f'<i class="ti ti-calendar-week me-1"></i>{t("timetable")}</h3><div class="card-actions card-note text-secondary small">'
              f'{t("timetable_aside" if from_banner else "timetable_manual")}</div></div>'
              f'<div class="card-body"><div id="calendar"></div></div>{online_note}</section></div>')
 
@@ -457,7 +457,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
                      f'<div class="text-secondary small mt-2 preview">{esc(a["preview"])}</div>{mentions}</div></div></div>')
     if items:
         p.append(f'<div class="col-12"><section id="news" class="card"><div class="card-header"><h3 class="card-title">'
-                 f'<i class="ti ti-speakerphone me-1"></i>{t("news")}</h3><div class="card-actions text-secondary small">'
+                 f'<i class="ti ti-speakerphone me-1"></i>{t("news")}</h3><div class="card-actions card-note text-secondary small">'
                  f'{t("news_aside")}</div></div><div class="list-group list-group-flush">{"".join(items)}</div></section></div>')
     p.append('</div>')
     if archive:
