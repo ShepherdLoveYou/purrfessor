@@ -18,12 +18,11 @@ CHROME = next((p for p in ["/Applications/Google Chrome.app/Contents/MacOS/Googl
                if p and shutil.os.path.exists(p)), None)
 
 
-def render_dom(html: str, tmp_path, size: tuple[int, int] | None = None, name: str = "p.html") -> str:
+def render_dom(html: str, tmp_path, name: str = "p.html") -> str:
     f = tmp_path / name
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(html, encoding="utf-8")
     cmd = [CHROME, "--headless=new", "--disable-gpu", f"--user-data-dir={tmp_path / 'ud'}",
-           *([f"--window-size={size[0]},{size[1]}"] if size else []),
            "--virtual-time-budget=4000", "--dump-dom", f.as_uri()]
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=40).stdout
@@ -55,6 +54,13 @@ CLOCK = """<script>(function () {
 BLOCK_STORAGE = 'Object.defineProperty(window, "localStorage", { get: function () { throw new Error("blocked"); } });'
 
 
+def framed(doc: str, width: int, height: int) -> str:
+    """The page in an iframe of exactly this size: headless Chrome will not open a window narrower than 500 px, and media
+    queries (max-width: 575px …) answer for the iframe. srcdoc keeps it same-origin: the probe writes its result into the outer page."""
+    return ('<!doctype html><meta charset="utf-8"><body style="margin:0">'
+            f'<iframe id="f" style="width:{width}px;height:{height}px;border:0" srcdoc="{htmllib.escape(doc, quote=True)}"></iframe>')
+
+
 def hermetic(page: str) -> str:
     """The page without its CDN files (no FullCalendar, no Tabler CSS): the script copes with a missing calendar."""
     return re.sub(r'<link rel="stylesheet" href="https://[^"]+">|<script src="https://[^"]+"></script>', "", page)
@@ -66,15 +72,17 @@ def run_page(page, tmp_path, now, probe="null", steps=(), blocked_storage=False,
     jump(ms) to move the clock on); at 3.5 s the value of the JS expression `probe` is returned, parsed from JSON.
     cdn=True keeps Tabler / FullCalendar (layout tests need the real CSS); `init` is JS that runs before the page's own,
     `css` is added to the head (a stand-in for the Tabler rules a test needs), `name` is the file name ("archive/2026-10-09.html"
-    makes it a snapshot page)."""
+    makes it a snapshot page); `size` = (width, height) of the viewport, from 320 up (see framed)."""
     run = "".join(f'setTimeout(function () {{ {js} }}, {ms});' for ms, js in steps)
     out = (f'setTimeout(function () {{ var r; try {{ r = JSON.stringify({probe}); }} catch (e) {{ r = JSON.stringify("ERR " + e); }}'
-           f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r; document.body.appendChild(out); }}, 3500);')
+           f'var out = document.createElement("pre"); out.id = "probe-result"; out.textContent = r;'
+           f'(window.parent !== window ? window.parent.document : document).body.appendChild(out); }}, 3500);')   # a framed page reports to its frame
     doc = page.html if hasattr(page, "html") else page
     doc = doc if cdn else hermetic(doc)
     doc = doc.replace("<head>", f"<head><style>{css}</style>" + CLOCK % (now.isoformat(), (BLOCK_STORAGE if blocked_storage else "") + init), 1)
     doc = doc.replace("</body>", f"<script>{run}{out}</script></body>")
-    dom = render_dom(doc, tmp_path, size, name)
+    assert not (size and name != "p.html"), "a sized page runs in an iframe: it has no file name of its own"
+    dom = render_dom(framed(doc, *size) if size else doc, tmp_path, name=name)
     found = re.search(r'<pre id="probe-result">(.*?)</pre>', dom, re.S)
     assert found, "the probe never ran: " + dom[-600:]
     return json.loads(htmllib.unescape(found.group(1)))

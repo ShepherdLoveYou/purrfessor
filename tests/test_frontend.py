@@ -43,8 +43,8 @@ def test_next_deadline_tone_follows_the_clock_and_clears(build, tmp_path):
 # ---------------------------------------------------------------- the phone header
 
 LAYOUT = ("({inner: innerWidth, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth,"
-          " lines: Math.round(document.querySelector('h1.page-title').getBoundingClientRect().height /"
-          " parseFloat(getComputedStyle(document.querySelector('h1.page-title')).lineHeight)),"
+          " lines: Math.round(document.querySelector('.page-title').getBoundingClientRect().height /"
+          " parseFloat(getComputedStyle(document.querySelector('.page-title')).lineHeight)),"
           " nav: [document.querySelector('.nav-sticky').getBoundingClientRect().left, document.querySelector('.nav-sticky').getBoundingClientRect().right]})")
 
 
@@ -57,6 +57,7 @@ def test_phone_header_keeps_the_title_on_one_line_and_never_scrolls_sideways(bui
     now = pt("2026-10-09 12:00")
     page = build(now, FakeCanvas(planner=[item(1, 1001, "Essay", now + timedelta(hours=6))]), lang=lang)
     got = run_page(page, tmp_path, now, LAYOUT, size=(width, 900), cdn=True)
+    assert got["inner"] == width, got                               # it really was this wide
     assert got["lines"] == 1, got
     assert got["sw"] <= got["cw"], got                              # compared with clientWidth: a classic scrollbar takes 15 px
     assert got["nav"][0] >= 0 and got["nav"][1] <= got["cw"], got   # the nav is as wide as the screen, not wider
