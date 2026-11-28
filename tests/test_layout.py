@@ -34,7 +34,7 @@ def test_long_card_notes_drop_under_the_title_on_a_phone(build):
     for sid in ("todo", "timetable"):
         assert 'card-actions card-note' in page.section(sid)
     assert 'card-actions text-secondary small">' in page.section("today")      # short: stays beside the title
-    assert ".card-note { flex: 1 0 100%;" in CSS and ".card-header { flex-wrap: wrap; }" in CSS
+    assert ".card-note { flex: 1 0 100%;" in CSS and ".card-header { flex-wrap: wrap; row-gap: .125rem; padding-block: .75rem; }" in CSS
 
 
 def test_the_sticky_nav_cancels_exactly_the_container_padding():

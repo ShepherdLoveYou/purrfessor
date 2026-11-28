@@ -85,21 +85,30 @@ def class_note(c: dict, t: T) -> str:
 
 # ---------------------------------------------------------------- pieces
 
+def expandable(text: str, cls: str = "") -> str:
+    """Text clamped to a few lines; a tap, or Enter / Space on the keyboard, shows the rest (the page script toggles .open)."""
+    return (f'<div class="text-secondary small {cls} preview" tabindex="0" role="button" aria-expanded="false">'
+            f'{esc(text)}</div>')
+
+
 def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") -> str:
     color = colors.get(task.course, "secondary")
-    meta = [course_badge(task.course, colors), esc(task.source if task.manual and task.source != "announcement"
-                                                   else t.kind(task.kind))]
+    # What the row says about when: the day heading above a "soon" row already says the day, so only the time; every other
+    # row has no such heading ("overdue", "later", "done"), so it gets the date ("10/5 Mon 12:30", not "Monday 12:30").
+    when = f"{task.due:%H:%M}" if state == "soon" else t.when(task.due)
+    text = [esc(task.source if task.manual and task.source != "announcement" else t.kind(task.kind))]
     if task.points:
-        meta.append(t("pts", p=f"{task.points:g}"))
-    meta.append(t.when(task.due) if state == "overdue" else t.when(task.due, now.date()))   # overdue: the date, not "Monday"
+        text.append(esc(t("pts", p=f"{task.points:g}")))
+    text.append(when)
+    meta = course_badge(task.course, colors) + f'<span>{" · ".join(text)}</span>'     # no text node starts with a "·"
     if task.feedback:      # the comment itself stays on Canvas: the badge only links to where it is
-        meta.append(link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt"))
+        meta += link_badge(f'<i class="ti ti-message-dots"></i> {t("has_feedback")}', task.url, "bg-blue-lt")
     lead = (f'<label class="tick-hit"><input class="form-check-input m-0 tick" type="checkbox" data-key="{esc(task.id)}" '
             f'aria-label="{t("tick_title")}"></label>' if task.manual or not task.done
             else f'<span class="status-dot status-{"green" if task.done else color} d-block"></span>')
     original = (f'<div class="text-secondary small original">{esc(task.title)}</div>'
                 if task.translated and same_words(task.translated) != same_words(task.title) else "")
-    note = f'<div class="text-secondary small mt-1">{esc(task.note)}</div>' if task.note else ""
+    note = expandable(task.note, "mt-1 preview-2") if task.note else ""       # a long quote from an announcement: two lines, tap for the rest
     window = task.late_window(now)           # past the due time but Canvas still takes the work
     if task.done:
         badge = f'<span class="badge bg-green-lt cd-done"><i class="ti ti-check"></i> {t("submitted")}</span>'
@@ -114,7 +123,7 @@ def task_html(task: Task, now: datetime, colors: dict, t: T, state: str = "") ->
             f'data-id="{esc(task.id)}" data-state="{state}"{lock}>'
             f'<div class="row align-items-center g-3"><div class="col-auto">{lead}</div>'
             f'<div class="col min-w-0"><div class="fw-medium title">{link(task.display_title, task.url)}</div>{original}'
-            f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">{" · ".join(meta)}</div>'
+            f'<div class="text-secondary small mt-1 d-flex flex-wrap gap-2 align-items-center">{meta}</div>'
             f'{note}{lock_note}</div><div class="col-auto">{badge}</div></div></div>')
 
 
@@ -459,7 +468,7 @@ def render(now: datetime, S, classes: list[dict], online: list[dict], tasks: lis
                      f'<div class="col min-w-0"><div class="fw-medium">{link(a.get("ai_title") or a["title"], a["url"])}{unread}</div>'
                      f'<div class="text-secondary small mt-1 d-flex gap-2 align-items-center">{course_badge(a["course"], colors)}'
                      f'{esc(t.when(a["when"], today))}</div>{summary}'
-                     f'<div class="text-secondary small mt-2 preview">{esc(a["preview"])}</div>{mentions}</div></div></div>')
+                     f'{expandable(a["preview"], "mt-2") if a["preview"] else ""}{mentions}</div></div></div>')
     if items:
         p.append(f'<div class="col-12"><section id="news" class="card"><div class="card-header"><h3 class="card-title">'
                  f'<i class="ti ti-speakerphone me-1"></i>{t("news")}</h3><div class="card-actions card-note text-secondary small">'
