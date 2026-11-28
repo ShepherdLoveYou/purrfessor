@@ -148,3 +148,37 @@ def test_a_tick_made_in_another_tab_shows_here(build, tmp_path):
     probe = "({next: document.querySelector('#next-due .next-title').textContent, checked: document.querySelector('.tick').checked})"
     event = "window.dispatchEvent(new StorageEvent('storage', {key: 'purrfessor-done:canvas-assignment-1', newValue: '1'}))"
     assert run_page(page, tmp_path, now, probe, steps=[(1500, event)]) == {"next": "Second", "checked": True}
+
+
+# ---------------------------------------------------------------- the nav fades when it scrolls
+
+NAV = ("({more: document.querySelector('.nav-sticky').classList.contains('more'), over: document.querySelector('.nav-sticky').scrollWidth >"
+       " document.querySelector('.nav-sticky').clientWidth})")
+TABLER_NAV = ".nav { display: flex; } .nav-link { padding: .5rem 1.5rem; white-space: nowrap; }"       # what Tabler gives the pills
+
+
+@needs_chrome
+def test_the_nav_fades_at_the_right_edge_only_while_there_is_more_to_scroll_to(build, tmp_path):
+    """English labels are wider than a phone: the pills scroll sideways, and the edge fades until the end is reached."""
+    now = pt("2026-10-09 12:00")
+    page = build(now, FakeCanvas(), lang="en")
+    steps = [(1500, "window.log = [" + NAV + "]; var n = document.querySelector('.nav-sticky'); n.scrollLeft = n.scrollWidth; n.dispatchEvent(new Event('scroll'));"),
+             (1800, "log.push(" + NAV + ");")]
+    start = run_page(page, tmp_path, now, NAV, size=(360, 700), css=TABLER_NAV)
+    assert start == {"more": True, "over": True}
+    log = run_page(page, tmp_path, now, "log", steps, size=(360, 700), css=TABLER_NAV)
+    assert log[0] == {"more": True, "over": True} and log[1] == {"more": False, "over": True}      # at the end: no fade
+    wide = run_page(page, tmp_path, now, NAV, size=(1100, 700), css=TABLER_NAV)
+    assert wide == {"more": False, "over": False}                                                   # it all fits: no fade
+
+
+def test_the_nav_fade_is_a_right_edge_mask(build):
+    page = build(pt("2026-10-09 12:00"))
+    assert ".nav-sticky.more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);" in page.html
+
+
+def test_the_browser_bar_has_a_colour_for_light_and_dark(build):
+    """theme-color follows the system theme, in the page's own background colours."""
+    page = build(pt("2026-10-09 12:00"))
+    assert '<meta name="theme-color" content="#fbfafb" media="(prefers-color-scheme: light)">' in page.html
+    assert '<meta name="theme-color" content="#161716" media="(prefers-color-scheme: dark)">' in page.html

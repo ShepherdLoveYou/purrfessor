@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{TITLE}}</title>
+<meta name="theme-color" content="#fbfafb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161716" media="(prefers-color-scheme: dark)">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,{{FAVICON}}">
 <script>
   // Follow the system's dark mode, also while the page stays open (a phone switches at sunset): Tabler reads
@@ -67,7 +69,12 @@
     margin: 1rem calc(-1 * var(--pad-r)) 0 calc(-1 * var(--pad-l)); padding: .5rem var(--pad-r) .5rem var(--pad-l);
     background: color-mix(in srgb, var(--tblr-body-bg) 85%, transparent);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); overflow-x: auto; }
+  .nav-sticky { scrollbar-width: none; }          /* the fade below says there is more; no scrollbar under the pills */
+  .nav-sticky::-webkit-scrollbar { display: none; }
   .nav-sticky .nav { flex-wrap: nowrap; }
+  /* more links off to the right (English labels, a "Home" link on a small phone): the right edge fades out */
+  .nav-sticky.more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent); }
   .nav-sticky .nav-link { white-space: nowrap; }
   section[id] { scroll-margin-top: 4.5rem; }
   .next .card-status-start { background: var(--c, var(--tblr-border-color)); }
@@ -301,6 +308,10 @@
     p.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
   });
 
+  var navbar = document.querySelector(".nav-sticky");
+  function navFade() { if (navbar) navbar.classList.toggle("more", navbar.scrollWidth - navbar.clientWidth - navbar.scrollLeft > 4); }
+  if (navbar) { navbar.addEventListener("scroll", navFade, { passive: true }); window.addEventListener("resize", navFade);
+    window.addEventListener("load", navFade); navFade(); }
   var links = document.querySelectorAll(".nav-sticky .nav-link");
   if ("IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (es) {
