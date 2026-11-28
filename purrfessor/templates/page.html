@@ -27,7 +27,7 @@
   /* Small coloured text. Tabler writes it in the plain palette colour on a pale wash of the same colour (2-4:1 for
      green, teal, orange, yellow…; in dark mode purple, blue, pink, red). Mixing the colour toward black (white in dark
      mode) keeps its hue and reaches 4.5:1. tests/test_contrast.py checks every colour against these two numbers. */
-  :root { --tone-ink: #000; --tone-mix: 60%; --tick-line: var(--tblr-secondary); --ring: var(--tblr-primary); }
+  :root { --tone-ink: #000; --tone-mix: 60%; --tone-mix-hot: 75%; --tick-line: var(--tblr-secondary); --ring: var(--tblr-primary); }
   :root[data-bs-theme="dark"] { --tone-ink: #fff; --tone-mix: 60%; --ring: color-mix(in srgb, var(--tblr-primary) 55%, #fff); }
   .badge.bg-red-lt, .text-danger { --tone: var(--tblr-red); }
   .badge.bg-orange-lt { --tone: var(--tblr-orange); }
@@ -63,7 +63,7 @@
   #next-class .next-big { color: color-mix(in srgb, var(--c, var(--tblr-body-color)) var(--tone-mix), var(--tone-ink)); }
   .next-big.tone-red { --tone: var(--tblr-red); }
   .next-big.tone-orange { --tone: var(--tblr-orange); }
-  .next-big.tone-red, .next-big.tone-orange { color: color-mix(in srgb, var(--tone) var(--tone-mix), var(--tone-ink)); }
+  .next-big.tone-red, .next-big.tone-orange { color: color-mix(in srgb, var(--tone) var(--tone-mix-hot), var(--tone-ink)); }
   .cd { font-variant-numeric: tabular-nums; min-width: 5.5rem; }
   /* Finished items are faded with a colour, not opacity: their text stays above 4.5:1 (done titles) / 3:1 (the rest) */
   .task.done .title, .task.checked .title { text-decoration: line-through; color: var(--tblr-secondary-color); }

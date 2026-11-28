@@ -75,6 +75,16 @@ def test_next_class_number_reaches_4_5(name, scheme):
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("name", ["red", "orange"])
+def test_urgent_countdown_reaches_4_5(name, scheme):
+    """The big red / orange "N hours left" is the only large text; it mixes less ink (--tone-mix-hot) to stay vivid."""
+    ink, _ = tokens(scheme)
+    hot = int(re.search(r"--tone-mix-hot:\s*(\d+)%", CSS).group(1)) / 100
+    assert "color-mix(in srgb, var(--tone) var(--tone-mix-hot), var(--tone-ink))" in CSS
+    assert contrast(mix(rgb(base(name, scheme)), rgb(ink), hot), rgb(CARD[scheme])) >= 4.5
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_deadline_alert_reaches_4_5(scheme):
     """The yellow box that shows a deadline found in an announcement (it was 2.0:1 in light mode)."""
     ink, share = tokens(scheme)
